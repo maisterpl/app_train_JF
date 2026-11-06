@@ -1,0 +1,45 @@
+{% load static %}
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c1724">
+  <meta name="description" content="Twój trening siłowy dla kolarza. Plany, wyniki i trening offline.">
+  <title>{% block title %}Siła na trasę{% endblock %} · Siła na trasę</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="{% static 'training/icon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'training/style.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <a class="skip-link" href="#main">Przejdź do treści</a>
+  <aside class="sidebar">
+    <a class="brand" href="{% url 'dashboard' %}" aria-label="Siła na trasę — Start"><span class="brand-symbol">→</span><span>SIŁA<br><small>NA TRASĘ</small></span></a>
+    <p class="sidebar-caption">TWÓJ WARSZTAT FORMY</p>
+    <nav class="main-nav" aria-label="Główna nawigacja">
+      <a href="{% url 'dashboard' %}" {% if request.resolver_match.url_name == 'dashboard' %}aria-current="page"{% endif %}><span aria-hidden="true">⌂</span>Start</a>
+      <a href="{% url 'plans' %}" {% if 'plan' in request.resolver_match.url_name %}aria-current="page"{% endif %}><span aria-hidden="true">▤</span>Plany</a>
+      <a href="{% url 'history' %}" {% if request.resolver_match.url_name == 'history' or request.resolver_match.url_name == 'workout' %}aria-current="page"{% endif %}><span aria-hidden="true">◷</span>Treningi</a>
+      <a href="{% url 'exercise_list' %}" {% if 'exercise' in request.resolver_match.url_name %}aria-current="page"{% endif %}><span aria-hidden="true">↔</span>Ćwiczenia</a>
+      <a href="{% url 'profiles' %}" {% if 'profile' in request.resolver_match.url_name %}aria-current="page"{% endif %}><span aria-hidden="true">◎</span>Profil</a>
+      <a href="{% url 'settings' %}" {% if request.resolver_match.url_name == 'settings' %}aria-current="page"{% endif %}><span aria-hidden="true">⚙</span>Ustawienia</a>
+    </nav>
+    <div class="sidebar-note"><span class="eyebrow">MAŁE KROKI. MOCNE NOGI.</span><p>Twoje tempo.<br>Twój progres.</p></div>
+  </aside>
+  <div class="page-shell">
+    <header class="topbar">
+      <a class="mobile-brand" href="{% url 'dashboard' %}">→ SIŁA NA TRASĘ</a>
+      <div class="connection"><span class="status-dot" aria-hidden="true"></span><span id="connection-status" role="status">Sprawdzanie połączenia</span><span id="pending-count" aria-live="polite"></span></div>
+      <a class="profile-pill" href="{% url 'profiles' %}"><span class="avatar" aria-hidden="true">{% if active_profile %}{{ active_profile.name|first|upper }}{% else %}?{% endif %}</span><span>{% if active_profile %}{{ active_profile.name }}{% else %}Wybierz profil{% endif %}</span></a>
+    </header>
+    <main id="main" tabindex="-1">
+      {% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="page-footer"><span>SIŁA NA TRASĘ</span><span>Trening siłowy dla kolarza</span></footer>
+  </div>
+  <script type="module" src="{% static 'training/pwa.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

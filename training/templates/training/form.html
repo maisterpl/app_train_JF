@@ -1,0 +1,6 @@
+{% extends 'training/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{{ back_url }}">← Wróć</a><div class="page-heading"><div><p class="eyebrow">TWÓJ TRENING, TWOJE USTAWIENIA</p><h1>{{ title }}<span class="accent">.</span></h1>{% if description %}<p class="lead">{{ description }}</p>{% endif %}</div></div>
+<section class="card form-card narrow"><form method="post">{% csrf_token %}{{ form.as_p }}<div class="actions"><button type="submit" class="button primary">Zapisz</button><a class="button secondary" href="{{ back_url }}">Anuluj</a></div></form></section>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends 'training/base.html' %}
+{% block title %}Plany{% endblock %}
+{% block content %}
+<div class="page-heading"><div><p class="eyebrow">PRZYGOTUJ SIĘ DO KOLEJNEJ SESJI</p><h1>Twoje plany<span class="accent">.</span></h1><p class="lead">Zapisz zestaw ćwiczeń i wracaj do niego, kiedy potrzebujesz.</p></div><a class="button primary" href="{% url 'plan_create' %}">＋ Nowy plan</a></div>
+<div class="cards-grid">{% for plan in plans %}<article class="card plan-card"><div class="card-top"><span class="plan-icon" aria-hidden="true">▤</span>{% if plan.phase.is_demo %}<span class="tag">DEMO</span>{% endif %}</div><p class="eyebrow">{{ plan.phase.name }}</p><h2>{{ plan.name }}</h2><p>{{ plan.items.count }} ćwiczeń</p><a class="button secondary full" href="{% url 'plan_detail' plan.pk %}">Otwórz plan <span aria-hidden="true">→</span></a></article>{% empty %}<div class="card empty-state wide"><span class="empty-icon" aria-hidden="true">▤</span><h2>Ułóż pierwszy plan</h2><p>Wybierz fazę, dodaj ćwiczenia i dostosuj ich parametry.</p><a class="button primary" href="{% url 'plan_create' %}">Utwórz plan</a></div>{% endfor %}</div>
+{% endblock %}

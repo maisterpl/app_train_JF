@@ -1,0 +1,7 @@
+{% extends 'training/base.html' %}
+{% block title %}Dodaj ćwiczenia{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'plan_detail' plan.pk %}">← Wróć do planu</a><div class="page-heading"><div><p class="eyebrow">{{ plan.name }} / {{ plan.phase.name }}</p><h1>Wybierz ćwiczenia<span class="accent">.</span></h1><p class="lead">Zaznacz pozycje przypisane do tej fazy. Potem ustawisz kolejność i parametry.</p></div></div>
+{% if not recommendations %}<p class="notice">Brak danych — ta faza nie ma przypisanych ćwiczeń. Uzupełnij zweryfikowane zalecenia w panelu administracyjnym.</p>{% elif not form.recommendations.field.queryset %}<p class="notice">Wszystkie ćwiczenia tej fazy są już w planie.</p>{% endif %}
+<section class="card form-card"><form method="post">{% csrf_token %}{{ form.as_p }}<div class="actions"><button type="submit" class="button primary" {% if not form.recommendations.field.queryset %}disabled{% endif %}>Dodaj wybrane ćwiczenia</button><a class="button secondary" href="{% url 'plan_detail' plan.pk %}">Anuluj</a></div></form></section>
+{% endblock %}

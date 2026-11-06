@@ -1,0 +1,9 @@
+{% extends 'training/base.html' %}{% load static %}
+{% block title %}{{ workout.plan_name }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'history' %}">← Historia treningów</a><p class="eyebrow">{{ workout.phase_name }}</p><h1 class="workout-title">{{ workout.plan_name }}</h1>
+<div id="workout-app" data-workout-id="{{ workout.pk }}" aria-live="polite"><section class="card"><p class="eyebrow">PRZYGOTOWANIE TRENINGU</p><h2>{{ initial_workout.exercises.0.snapshot.name|default:'Trening' }}</h2><p>Wczytywanie lokalnego zapisu sesji…</p></section></div>
+{{ initial_workout|json_script:'initial-workout' }}
+<noscript><p class="notice">Ekran treningu i zapis offline wymagają JavaScript. Włącz JavaScript, aby zapisywać serie.</p></noscript>
+{% endblock %}
+{% block scripts %}<script type="module" src="{% static 'training/workout.js' %}"></script>{% endblock %}

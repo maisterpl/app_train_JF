@@ -1,0 +1,13 @@
+{
+  "id": "/",
+  "name": "Siła na trasę — dziennik treningu",
+  "short_name": "Siła na trasę",
+  "description": "Plany, trening siłowy i wyniki kolarza. Przygotowany trening działa offline.",
+  "lang": "pl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0c1724",
+  "theme_color": "#0c1724",
+  "icons": [{"src": "/static/training/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}]
+}

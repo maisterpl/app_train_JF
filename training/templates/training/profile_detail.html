@@ -1,0 +1,6 @@
+{% extends 'training/base.html' %}
+{% block title %}{{ profile.name }}{% endblock %}
+{% block content %}
+<a class="back-link" href="{% url 'profiles' %}">← Wszystkie profile</a><div class="page-heading"><div><p class="eyebrow">PROFIL I POMIARY</p><h1>{{ profile.name }}<span class="accent">.</span></h1><p class="lead">{{ profile.notes|default:'Zapisuj pomiary, aby obciążenia odpowiadały Twojej masie.' }}</p></div><a class="button secondary" href="{% url 'profile_edit' profile.pk %}">Edytuj profil</a></div>
+<div class="two-column"><section class="card"><p class="eyebrow">HISTORIA</p><h2>Masa ciała</h2>{% if weights %}<div class="table-scroll"><table><thead><tr><th>Data pomiaru</th><th>Masa</th></tr></thead><tbody>{% for measurement in weights %}<tr><td>{{ measurement.date|date:'d.m.Y' }}</td><td class="number">{{ measurement.value }} kg</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty-copy">Brak danych. Dodaj pierwszy pomiar masy ciała.</p>{% endif %}<p class="muted small">Przy planowaniu wykorzystujemy najnowszy pomiar dostępny na dzień treningu.</p></section><section class="card form-card"><p class="eyebrow">NOWY POMIAR</p><h2>Zapisz masę ciała</h2><form method="post">{% csrf_token %}{{ form.as_p }}<button class="button primary" type="submit">Zapisz pomiar</button></form></section></div>
+{% endblock %}
