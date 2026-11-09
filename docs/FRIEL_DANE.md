@@ -1,32 +1,38 @@
-# Materiały do uzupełnienia programu Joe Friela
+# Dane faz Joe Friela i granice materiałów
 
-W repozytorium nie dostarczono materiałów źródłowych określających fazy i parametry treningu siłowego Joe Friela. Aplikacja zawiera strukturę danych i panel administracyjny, ale nie przypisuje autorowi własnych zaleceń. W interfejsie brakujące dane są oznaczane jako **Brak danych**.
+Źródłem danych początkowych jest [materiał dostarczony przez użytkownika](FRIEL_MATERIAL_UZYTKOWNIKA.md), opisany jako arkusz do książki Joe Friela „Biblia treningu kolarza górskiego”, tabele 13.1–13.7. Aplikacja odwzorowuje tę transkrypcję oraz podane w niej ograniczenia. Nie przedstawia jej jako niezależnie zweryfikowanego, pełnego odwzorowania książki. Krótkie opisy faz są objaśnieniami, nie cytatami.
 
-Zestaw **DEMO** jest technicznym przykładem działania aplikacji. Nie jest programem Joe Friela. Nie należy zmieniać samej etykiety DEMO, aby przedstawiać te wartości jako zweryfikowane zalecenia.
+## Dostępne dane
 
-Do uzupełnienia potrzebne są:
+Migracje dodają fazy AA — adaptacja anatomiczna, SM — siła maksymalna, WM — wytrzymałość mocy, WS — wytrzymałość siłowa i US — utrzymanie siły. Fazy MT nie dodano. Zestaw DEMO pozostaje oddzielny od tych danych.
 
-| Obszar | Dane wymagane ze źródła |
+Każda faza zachowuje liczbę sesji i częstotliwość podane w materiale. Nie przeliczono ich na sztywną liczbę tygodni i nie dodano automatycznej zmiany fazy. Kolejność pozycji jest odrębna od wariantów ćwiczeń: wyprost biodra może oznaczać przysiad, wypychanie nogami albo step. „Osobiste słabości” są kategorią wyboru, nie fikcyjnym ćwiczeniem. W AA dwa wybrane ćwiczenia wyprostu biodra muszą być różne.
+
+Faza planu i zestaw parametrów pozycji są przechowywane osobno. Pozycje pomocnicze w SM, WM, WS i US zachowują AA: 2–5 serii, 20–30 powtórzeń, 40–60% 1RM, powolne tempo, odpoczynek 60–90 s. Zakres serii dotyczy pojedynczego ćwiczenia. Oryginalne zapisy „3–6+” i „8–15+” są zachowane; „+” nie oznacza automatycznie treningu do upadku.
+
+Obciążenia korzystają z własnego 1RM wybranego ćwiczenia. Zmiana wariantu nie przenosi 1RM ani mnożnika innego ćwiczenia. Jeżeli dla ćwiczenia tułowia lub innego wariantu nie ustalono sposobu zapisu obciążenia, aplikacja pokazuje brak danych i pozwala użytkownikowi ustawić własny parametr; masa ciała nie staje się automatycznie 1RM.
+
+### Cele końcowe SM
+
+Zakresy celu końcowego wynoszą: przysiad 1,3–1,7 × masa ciała, wiosłowanie na siedząco 0,5–0,8 × masa ciała i wiosłowanie na stojąco 0,4–0,7 × masa ciała. Dotyczą ciężaru na sześć powtórzeń pod koniec fazy. Są przechowywane i prezentowane oddzielnie od zaplanowanego ciężaru serii. Nie wybiera się automatycznie celu konkretnej osoby ani ciężaru pierwszego treningu. Po osiągnięciu celu materiał dopuszcza zachowanie ciężaru i zwiększanie liczby powtórzeń ponad sześć.
+
+### Serie US
+
+Przy dwóch seriach pierwsza ma 60%, druga 80% 1RM. Przy trzech seriach pierwsza ma 60%, trzecia 80% 1RM. Środkowa seria nie ma określonego w dostarczonym materiale obciążenia. Pozostaje oznaczona jako „Brak danych”, dopóki użytkownik świadomie nie ustawi własnego ciężaru. Wartości 70% nie dodano jako zalecenia źródłowego.
+
+### Szacowanie 1RM
+
+Oddzielny kalkulator korzysta ze współczynników tabeli 13.7 dla 4–10 powtórzeń. Wynik jest oznaczony jako szacowany, a zapis do profilu wymaga osobnego potwierdzenia. Zwykły zapis serii nie aktualizuje 1RM.
+
+## Co pozostaje do uzupełnienia
+
+| Materiał | Dlaczego jest potrzebny |
 | --- | --- |
-| Pochodzenie | Tytuł publikacji lub materiału, autor, wydanie/rok, strony lub lokalizacja tabel oraz udostępniony fragment, który można wykorzystać w projekcie. |
-| Fazy | Dokładne nazwy, opis i kolejność faz; jeżeli istotne — długość i warunki stosowania. |
-| Ćwiczenia | Dokładna lista ćwiczeń przypisana do każdej fazy, wariant wykonania, opis, kategoria i uwagi techniczne. |
-| Serie | Liczba serii albo dolna i górna granica zakresu. |
-| Powtórzenia/czas | Liczba lub zakres powtórzeń; dla ćwiczeń na czas — sekundy i informacja, czego dotyczy czas. |
-| Obciążenie | Procent lub zakres procentowy wraz z jednoznaczną podstawą: 1RM konkretnego ćwiczenia albo masa ciała. Jeżeli występuje — ciężar stały lub brak obciążenia. |
-| Sposób zapisu | Czy ciężar oznacza całość, jedną hantlę, obciążenie zewnętrzne czy inną jednostkę/konwencję. |
-| Tempo | Dokładny zapis tempa i objaśnienie jego części. |
-| Odpoczynek | Czas pomiędzy seriami i ewentualnie pomiędzy ćwiczeniami; jednostki oraz zakresy, jeśli występują. |
-| Uwagi | Ograniczenia, warianty dla poziomów zaawansowania, rozgrzewka lub inne komentarze, które należą do danego zalecenia. |
+| Pełna tabela 13.3, w tym przypisy i zasady doboru celu | Pozwoli zweryfikować wybór celu SM dla konkretnej osoby; obecnie wyświetlany jest wyłącznie dostarczony zakres. |
+| Mnożniki SM dla wypychania nogami, stepu i ewentualnych innych wariantów | Nie można stosować do nich mnożnika przysiadu. |
+| Brakujący przypis AA ze strony 236 | Jego treści nie odtworzono z domysłów. |
+| Obciążenie środkowej serii przy trzech seriach US, jeżeli inne materiały je określają | Obecna tabela go nie podaje; własny ciężar użytkownika pozostaje ustawieniem własnym. |
+| Opisy techniki i konwencje zapisu obciążenia, których nie ma w transkrypcji | Nie dopisano niepotwierdzonych instrukcji wykonania ani interpretacji ciężaru. |
+| Wydanie/rok książki i lokalizacja kompletnych tabel | Uzupełnią precyzyjną identyfikację źródła. |
 
-Nie należy uzupełniać braków na podstawie samej nazwy fazy, ogólnych porad siłowych ani pamięci. Dla każdego zalecenia zachowaj identyfikowalne pochodzenie; jeśli danej wartości nie ma w źródle, pozostaw ją pustą i zapisz uwagę.
-
-## Wprowadzanie do panelu Django
-
-1. Dodaj lub popraw ćwiczenia w **Exercises / Ćwiczeniach**. Ustal, czy rejestrują powtórzenia czy czas, i opisz zapis ciężaru.
-2. Utwórz fazę z dokładną nazwą; pole źródła wypełnij tytułem, wydaniem i stroną. Nie zaznaczaj DEMO dla zweryfikowanych materiałów.
-3. Dodaj zalecenia łączące fazę z ćwiczeniem. Wpisz tylko potwierdzone parametry i właściwą podstawę obliczeń.
-4. Sprawdź plan testowy dla obu podstaw obciążenia. Zweryfikuj etykietę podstawy, zakres i wynik dla znanych pomiarów profilu.
-5. Istniejące rozpoczęte sesje zachowają swoje kopie parametrów. Zmiana zaleceń fazy nie powinna zmieniać ich historii.
-
-Dokładnych danych medycznych ani haseł/kluczy nie trzeba umieszczać w tych materiałach.
+Administrator może uzupełniać fazy, uporządkowane pozycje, dozwolone warianty i cele w panelu Django. Nowe dane trzeba przypisywać do właściwego ćwiczenia i źródła. Istniejące rozpoczęte sesje zachowują kopie parametrów i nie są przeliczane po zmianie danych programu.

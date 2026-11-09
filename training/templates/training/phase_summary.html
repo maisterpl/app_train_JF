@@ -1,0 +1,13 @@
+<section class="card phase-summary" aria-label="Informacje o fazie treningu">
+  <div class="section-heading"><div><p class="eyebrow">FAZA CAŁEGO PLANU</p><h2>{{ plan.phase.name }}</h2></div>{% if plan.phase.code %}<span class="tag lime">{{ plan.phase.code }}</span>{% endif %}</div>
+  {% if plan.phase.description %}<p>{{ plan.phase.description }}</p>{% endif %}
+  {% if plan.phase.code %}
+  <div class="phase-schedule">
+    <div><span>Sesje w fazie</span><strong>{% if plan.phase.sessions_unlimited %}Bez określonego limitu{% elif plan.phase.sessions_min %}{{ plan.phase.sessions_min }}{% if plan.phase.sessions_max != plan.phase.sessions_min %}–{{ plan.phase.sessions_max }}{% endif %}{% else %}Brak danych{% endif %}</strong></div>
+    <div><span>Sesje tygodniowo</span><strong>{% if plan.phase.weekly_min %}{{ plan.phase.weekly_min }}{% if plan.phase.weekly_max != plan.phase.weekly_min %}–{{ plan.phase.weekly_max }}{% endif %}{% else %}Brak danych{% endif %}</strong></div>
+  </div>
+  <p class="muted small">Liczba sesji nie wyznacza sztywnej liczby tygodni. Aplikacja nie przechodzi automatycznie do następnej fazy.</p>
+  {% endif %}
+  {% if plan.phase.source %}<p class="muted small">Źródło: {{ plan.phase.source }}</p>{% endif %}
+  {% if plan.phase.is_demo %}<p class="notice">DEMO — parametry służą wyłącznie do sprawdzenia aplikacji. Nie są programem ani zaleceniami Joe Friela.</p>{% endif %}
+</section>

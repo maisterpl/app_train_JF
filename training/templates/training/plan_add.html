@@ -1,7 +1,34 @@
 {% extends 'training/base.html' %}
 {% block title %}Dodaj ćwiczenia{% endblock %}
 {% block content %}
-<a class="back-link" href="{% url 'plan_detail' plan.pk %}">← Wróć do planu</a><div class="page-heading"><div><p class="eyebrow">{{ plan.name }} / {{ plan.phase.name }}</p><h1>Wybierz ćwiczenia<span class="accent">.</span></h1><p class="lead">Zaznacz pozycje przypisane do tej fazy. Potem ustawisz kolejność i parametry.</p></div></div>
-{% if not recommendations %}<p class="notice">Brak danych — ta faza nie ma przypisanych ćwiczeń. Uzupełnij zweryfikowane zalecenia w panelu administracyjnym.</p>{% elif not form.recommendations.field.queryset %}<p class="notice">Wszystkie ćwiczenia tej fazy są już w planie.</p>{% endif %}
-<section class="card form-card"><form method="post">{% csrf_token %}{{ form.as_p }}<div class="actions"><button type="submit" class="button primary" {% if not form.recommendations.field.queryset %}disabled{% endif %}>Dodaj wybrane ćwiczenia</button><a class="button secondary" href="{% url 'plan_detail' plan.pk %}">Anuluj</a></div></form></section>
+<a class="back-link" href="{% url 'plan_detail' plan.pk %}">← Wróć do planu</a>
+<div class="page-heading"><div><p class="eyebrow">{{ plan.name }}</p><h1>Wybierz ćwiczenia<span class="accent">.</span></h1><p class="lead">Zaznacz pozycje i wybierz warianty ćwiczeń. Do planu trafią tylko zaznaczone pozycje.</p></div></div>
+{% include 'training/phase_summary.html' %}
+{% if has_slots %}
+  {% if slot_rows %}
+  <p class="notice">Zestaw parametrów jest przypisany do pozycji. Ćwiczenia pomocnicze oznaczone AA zachowują parametry AA także w innej fazie planu. Wybrany wariant korzysta z własnej wartości 1RM.</p>
+  <form method="post" class="slot-selection-form">
+    {% csrf_token %}{{ form.non_field_errors }}
+    {% for row in slot_rows %}{% with slot=row.slot %}
+    <section class="card slot-choice">
+      <div class="slot-choice-heading"><label for="{{ row.selected.id_for_label }}">{{ row.selected }}<span>{{ slot.position }}. {{ slot.title }}</span></label><span class="tag lime">Parametry {{ slot.parameter_code|default:'Brak danych' }}</span></div>
+      {{ row.selected.errors }}
+      <div class="prescription-grid">
+        <div><span>Serie na ćwiczenie</span><strong>{{ slot.sets_min|default_if_none:'Brak danych' }}{% if slot.sets_max and slot.sets_max != slot.sets_min %}–{{ slot.sets_max }}{% endif %}</strong></div>
+        <div><span>Powtórzenia</span><strong>{% if slot.reps_original %}{{ slot.reps_original }}{% else %}{{ slot.reps_min|default_if_none:'Brak danych' }}{% if slot.reps_max and slot.reps_max != slot.reps_min %}–{{ slot.reps_max }}{% endif %}{% endif %}</strong></div>
+        <div><span>Tempo</span><strong>{{ slot.tempo|default:'Brak danych' }}</strong></div>
+        <div><span>Odpoczynek</span><strong>{{ slot.rest_seconds|default_if_none:'Brak danych' }}{% if slot.rest_seconds_max and slot.rest_seconds_max != slot.rest_seconds %}–{{ slot.rest_seconds_max }}{% endif %} s</strong></div>
+      </div>
+      <p class="load-explanation">{% if slot.series_load_mode == 'endpoints' %}Pierwsza seria: 60% 1RM. Ostatnia seria: 80% 1RM. Przy 3 seriach środkowy ciężar ustalasz samodzielnie.{% elif slot.basis == 'rm' or slot.basis == 'body' %}{{ slot.percent_min|default_if_none:'Brak danych' }}{% if slot.percent_max and slot.percent_max != slot.percent_min %}–{{ slot.percent_max }}{% endif %}% · {{ slot.get_basis_display }}{% elif slot.basis == 'fixed' %}Stały ciężar: {{ slot.fixed_weight|default_if_none:'Brak danych' }} kg{% elif slot.basis == 'none' %}Bez dodatkowego obciążenia{% else %}Brak danych o zalecanym ciężarze serii. Ustawisz go samodzielnie; cel końcowy SM jest osobną informacją.{% endif %}</p>
+      <div class="slot-fields"><div><label for="{{ row.exercise.id_for_label }}">Wariant ćwiczenia</label>{{ row.exercise }}{{ row.exercise.errors }}</div>{% if row.chosen_sets %}<div><label for="{{ row.chosen_sets.id_for_label }}">Liczba serii tego ćwiczenia w planie</label>{{ row.chosen_sets }}{{ row.chosen_sets.errors }}<p class="muted small">Wybierasz 2 lub 3 serie. Brakujący środkowy ciężar możesz uzupełnić we własnych parametrach planu.</p></div>{% endif %}</div>
+      {% if slot.notes %}<p class="muted small">{{ slot.notes }}</p>{% endif %}
+    </section>
+    {% endwith %}{% endfor %}
+    <div class="actions"><button type="submit" class="button primary">Dodaj wybrane ćwiczenia</button><a class="button secondary" href="{% url 'plan_detail' plan.pk %}">Anuluj</a></div>
+  </form>
+  {% else %}<section class="card empty-state"><h2>Wszystkie pozycje tej fazy są już w planie</h2><p>Możesz zmienić ich warianty i parametry w widoku planu.</p><a class="button secondary" href="{% url 'plan_detail' plan.pk %}">Wróć do planu</a></section>{% endif %}
+{% else %}
+  {% if not recommendations %}<p class="notice">Brak danych — ta faza nie ma przypisanych ćwiczeń. Uzupełnij zweryfikowane zalecenia w panelu administracyjnym.</p>{% elif not form.recommendations.field.queryset %}<p class="notice">Wszystkie ćwiczenia tej fazy są już w planie.</p>{% endif %}
+  <section class="card form-card"><form method="post">{% csrf_token %}{{ form.as_p }}<div class="actions"><button type="submit" class="button primary" {% if not form.recommendations.field.queryset %}disabled{% endif %}>Dodaj wybrane ćwiczenia</button><a class="button secondary" href="{% url 'plan_detail' plan.pk %}">Anuluj</a></div></form></section>
+{% endif %}
 {% endblock %}

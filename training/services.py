@@ -9,7 +9,7 @@ from django.db.models import Max
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from .models import (BodyWeight, OneRepMax, Prescription, SyncReceipt, Workout,
+from .models import (BodyWeight, OneRepMax, Prescription, StrengthGoal, SyncReceipt, Workout,
                      WorkoutExercise, WorkoutSet)
 
 
@@ -43,6 +43,8 @@ def _number(value, label, *, positive=False):
 def calculate_load(prescription, rm=None, body=None, step=Decimal('2.5')):
     """Return rounded kg without substituting zero for an unknown input."""
     p = prescription_data(prescription)
+    if p.get('series_load_mode') == 'endpoints':
+        return _calculate_series_loads(p, rm, body, step)
     basis = p.get('basis')
     output = {'min': None, 'max': None, 'explanation': '', 'missing': ''}
     if basis == 'none':
@@ -87,6 +89,72 @@ def calculate_load(prescription, rm=None, body=None, step=Decimal('2.5')):
     return output
 
 
+def _calculate_series_loads(p, rm, body, step):
+    """US endpoints belong to particular sets, never to a continuous range."""
+    count = p.get('chosen_sets')
+    if count not in (2, 3):
+        return {'min': None, 'max': None, 'explanation': 'Wybierz 2 albo 3 serie US.',
+                'missing': 'Brak danych: wybrana liczba serii US (2 albo 3)', 'series_loads': []}
+    loads = []
+    for number in range(1, count + 1):
+        if number == 1 or number == count:
+            percent = 60 if number == 1 else 80
+            row = calculate_load({'basis': 'rm', 'percent_min': percent, 'series_load_mode': 'uniform'}, rm=rm, body=body, step=step)
+            row.update(number=number, is_custom=False)
+        else:
+            row = {'number': number, 'min': None, 'max': None, 'is_custom': True,
+                   'explanation': 'Środkowa seria: obciążenie nieokreślone w materiale; ustawienie własne.',
+                   'missing': 'Ustal własny ciężar środkowej serii.'}
+            if p.get('middle_weight') is not None:
+                weight = _number(p['middle_weight'], 'Własny ciężar środkowej serii')
+                row.update(min=decimal_text(weight), max=decimal_text(weight), missing='',
+                           explanation=f'Ustawienie własne środkowej serii: {decimal_text(weight)} kg (nie zalecenie książki).')
+        loads.append(row)
+    missing = '; '.join(dict.fromkeys(row['missing'] for row in loads if row['missing']))
+    return {'min': None, 'max': None, 'explanation': 'Obciążenie według numeru serii: pierwsza 60% 1RM, ostatnia 80% 1RM.',
+            'missing': missing, 'series_loads': loads}
+
+
+RM_COEFFICIENTS = {4: Decimal('0.900'), 5: Decimal('0.875'), 6: Decimal('0.850'),
+                   7: Decimal('0.825'), 8: Decimal('0.800'), 9: Decimal('0.775'), 10: Decimal('0.750')}
+
+
+def estimate_rm(weight, reps):
+    """Table 13.7 estimate; never stores a measurement automatically."""
+    amount = _integer(reps, 'Powtórzenia próby')
+    if amount not in RM_COEFFICIENTS:
+        raise ValidationError('Kalkulator tabeli 13.7 obsługuje wyłącznie 4–10 powtórzeń.')
+    load = _number(weight, 'Ciężar próby', positive=True)
+    if load > Decimal('999999.99'):
+        raise ValidationError('Ciężar próby jest zbyt duży.')
+    value = (load / RM_COEFFICIENTS[amount]).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+    if value > Decimal('999999.99'):
+        raise ValidationError('Szacowane 1RM jest zbyt duże do zapisania.')
+    return value
+
+
+def calculate_goal(goal, body=None, step=Decimal('2.5')):
+    result = {'min': None, 'max': None, 'explanation': '', 'missing': '',
+              'multiplier_min': None, 'multiplier_max': None, 'target_reps': 6, 'source': '', 'notes': ''}
+    if goal is None:
+        result['missing'] = 'Brak danych: zakres celu końcowego dla tego wariantu. Uzupełnij tabelę 13.3.'
+        result['explanation'] = result['missing']
+        return result
+    result.update(multiplier_min=decimal_text(goal.multiplier_min), multiplier_max=decimal_text(goal.multiplier_max),
+                  target_reps=goal.target_reps, source=goal.source, notes=goal.notes)
+    prefix = f'Zakres celu końcowego: {decimal_text(goal.multiplier_min)}–{decimal_text(goal.multiplier_max)} × masa ciała na {goal.target_reps} powtórzeń pod koniec fazy.'
+    if body is None:
+        result['missing'] = 'Dodaj pomiar masy ciała na dzień treningu lub wcześniejszy.'
+        result['explanation'] = prefix
+        return result
+    body = _number(body, 'Masa ciała celu', positive=True)
+    # Preserve the exact source target endpoints; rounding must not narrow them.
+    values = [body * multiplier for multiplier in (goal.multiplier_min, goal.multiplier_max)]
+    result.update(min=decimal_text(values[0]), max=decimal_text(values[1]),
+                  explanation=prefix + f' Dla {decimal_text(body)} kg: {decimal_text(values[0])}–{decimal_text(values[1])} kg. To nie jest zalecany ciężar pierwszego treningu; wybór celu wymaga weryfikacji tabeli 13.3.')
+    return result
+
+
 def _uuid(value, label):
     try:
         return uuid.UUID(str(value))
@@ -108,9 +176,18 @@ def start_workout(plan, date=None, workout_id=None):
         if existing.profile_id != plan.profile_id or existing.plan_id != plan.pk:
             raise ValidationError('Ten identyfikator treningu jest już używany.')
         return existing
-    items = list(plan.items.select_related('exercise').all())
+    items = list(plan.items.select_related('exercise', 'slot', 'plan__phase').all())
     if not items:
         raise ValidationError('Dodaj co najmniej jedno ćwiczenie do planu.')
+    hip_variants = set()
+    for item in items:
+        item.full_clean()
+        if item.slot_id and plan.phase.code == 'AA' and item.slot.category == 'hip':
+            if item.exercise_id in hip_variants:
+                raise ValidationError('W pozycjach wyprostu biodra AA wybierz różne ćwiczenia.')
+            hip_variants.add(item.exercise_id)
+        if item.series_load_mode == 'endpoints' and item.chosen_sets not in (2, 3):
+            raise ValidationError('Przed rozpoczęciem US wybierz 2 albo 3 serie w każdej pozycji głównej.')
     body = BodyWeight.objects.filter(profile=plan.profile, date__lte=training_date).order_by('-date', '-pk').first()
     now = timezone.now()
     workout = Workout.objects.create(
@@ -133,6 +210,10 @@ def start_workout(plan, date=None, workout_id=None):
                 weight=decimal_text(s.weight), reps=s.reps, seconds=s.seconds,
             ) for s in previous.sets.filter(deleted=False)]
         snapshot = prescription_data(item)
+        load = calculate_load(item, rm=rm.value if rm else None, body=body.value if body else None, step=plan.profile.rounding_step)
+        goal = None
+        if item.parameter_code == 'SM':
+            goal = StrengthGoal.objects.filter(phase=plan.phase, exercise=item.exercise).first()
         snapshot.update(
             name=item.exercise.name, mode=item.exercise.mode,
             description=item.exercise.description, category=item.exercise.category,
@@ -141,7 +222,12 @@ def start_workout(plan, date=None, workout_id=None):
             rm=decimal_text(rm.value) if rm else None, rm_date=rm.date.isoformat() if rm else None,
             body_weight=decimal_text(body.value) if body else None,
             body_weight_date=body.date.isoformat() if body else None,
-            load=calculate_load(item, rm=rm.value if rm else None, body=body.value if body else None, step=plan.profile.rounding_step),
+            load=load, series_loads=load.get('series_loads', []),
+            end_goal=calculate_goal(goal, body.value if body else None, plan.profile.rounding_step) if item.parameter_code == 'SM' else None,
+            slot_id=item.slot_id, slot_title=item.slot.title if item.slot_id else '',
+            slot_category=item.slot.category if item.slot_id else '',
+            phase_code=plan.phase.code,
+            rm_is_estimated=rm.is_estimated if rm else False,
             previous_results=previous_results,
         )
         WorkoutExercise.objects.create(workout=workout, exercise=item.exercise, position=position, snapshot=snapshot)

@@ -1,5 +1,6 @@
 import csv
 import json
+import re
 from collections import defaultdict
 from functools import wraps
 from django.contrib import messages
@@ -11,11 +12,11 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from .forms import (AddExercisesForm, BodyWeightForm, OneRepMaxForm, PlanForm,
+from .forms import (AddExercisesForm, AddPhaseSlotsForm, BodyWeightForm, EstimateRMForm, OneRepMaxForm, PlanForm,
                     PlanItemForm, PRESCRIPTION_FIELDS, ProfileForm, SettingsForm, StartWorkoutForm)
-from .models import (BodyWeight, Exercise, OneRepMax, Phase, Plan, PlanItem, Profile,
+from .models import (BodyWeight, Exercise, OneRepMax, Phase, PhaseSlot, Plan, PlanItem, Profile, StrengthGoal,
                      Recommendation, Workout, WorkoutExercise, WorkoutSet)
-from .services import calculate_load, serialize_workout, start_workout
+from .services import calculate_goal, calculate_load, estimate_rm, serialize_workout, start_workout
 
 
 def get_active_profile(request):
@@ -124,10 +125,24 @@ def plan_edit(request, pk):
         old_phase = Plan.objects.get(pk=p.pk).phase_id
         p = form.save()
         if old_phase != p.phase_id:
-            p.items.update(overridden=True)
+            p.items.update(overridden=True, slot=None)
         messages.success(request, 'Zapisano plan. Zachowano dotychczasowe pozycje.')
         return redirect('plan_detail', pk=p.pk)
     return _form(request, form, 'Edytuj plan', reverse('plan_detail', args=[p.pk]))
+
+
+def _reps_label(prescription):
+    """Keep source '+' only while its numeric bounds still describe the plan."""
+    original = prescription.reps_original
+    numbers = [int(n) for n in re.findall(r'\d+', original)]
+    low, high = prescription.reps_min, prescription.reps_max
+    source_bounds = (numbers[0], numbers[-1]) if numbers else None
+    bounds = (low, high if high is not None else low)
+    if source_bounds == bounds:
+        return original
+    if low is None:
+        return 'Brak danych'
+    return str(low) + (f'–{high}' if high is not None and high != low else '')
 
 
 def _plan_detail(request, p, start_form=None):
@@ -138,14 +153,18 @@ def _plan_detail(request, p, start_form=None):
     profile = get_active_profile(request)
     body = BodyWeight.objects.filter(profile=profile, date__lte=day).order_by('-date', '-pk').first()
     items = []
-    for item in p.items.select_related('exercise').order_by('position', 'pk'):
+    for item in p.items.select_related('exercise', 'slot').order_by('position', 'pk'):
         rm = OneRepMax.objects.filter(profile=profile, exercise=item.exercise, date__lte=day).order_by('-date', '-pk').first()
         prescription = {f: getattr(item, f) for f in PRESCRIPTION_FIELDS}
         load = calculate_load(prescription, rm=rm.value if rm else None, body=body.value if body else None, step=profile.rounding_step)
-        items.append({'item': item, 'load': load})
+        goal = None
+        if item.parameter_code == 'SM':
+            source_goal = StrengthGoal.objects.filter(phase=p.phase, exercise=item.exercise).first()
+            goal = calculate_goal(source_goal, body=body.value if body else None, step=profile.rounding_step)
+        items.append({'item': item, 'load': load, 'end_goal': goal, 'reps_label': _reps_label(item)})
     return _render(request, 'plan_detail', {'plan': p, 'items': items, 'start_form': start_form,
         'has_missing': any(i['load'].get('missing') for i in items),
-        'recommendations_count': Recommendation.objects.filter(phase=p.phase).count()})
+        'recommendations_count': Recommendation.objects.filter(phase=p.phase).count() + p.phase.slots.count()})
 
 
 @profile_required
@@ -156,19 +175,32 @@ def plan_detail(request, pk):
 @profile_required
 def plan_add(request, pk):
     p = _plan(request, pk)
-    form = AddExercisesForm(request.POST if request.method == 'POST' else None, plan=p)
+    has_slots = p.phase.slots.exists()
+    form_type = AddPhaseSlotsForm if has_slots else AddExercisesForm
+    form = form_type(request.POST if request.method == 'POST' else None, plan=p)
     if request.method == 'POST' and form.is_valid():
         with transaction.atomic():
             Plan.objects.select_for_update().get(pk=p.pk)
             last = p.items.order_by('-position').first()
             position = last.position + 1 if last else 1
-            for rec in form.cleaned_data['recommendations']:
-                PlanItem.objects.create(plan=p, exercise=rec.exercise, position=position,
-                    **{f: getattr(rec, f) for f in PRESCRIPTION_FIELDS})
-                position += 1
+            if has_slots:
+                for slot, exercise, chosen_sets in form.cleaned_data['selections']:
+                    values = {f: getattr(slot, f) for f in PRESCRIPTION_FIELDS}
+                    if slot.series_load_mode == 'endpoints':
+                        values['chosen_sets'] = chosen_sets
+                    item = PlanItem(plan=p, slot=slot, exercise=exercise, position=position, **values)
+                    item.full_clean()
+                    item.save()
+                    position += 1
+            else:
+                for rec in form.cleaned_data['recommendations']:
+                    PlanItem.objects.create(plan=p, exercise=rec.exercise, position=position,
+                        **{f: getattr(rec, f) for f in PRESCRIPTION_FIELDS})
+                    position += 1
         messages.success(request, 'Dodano wybrane ćwiczenia.')
         return redirect('plan_detail', pk=p.pk)
     return _render(request, 'plan_add', {'plan': p, 'form': form,
+        'has_slots': has_slots, 'slot_rows': form.slot_rows() if has_slots else [],
         'recommendations': Recommendation.objects.filter(phase=p.phase).select_related('exercise')})
 
 
@@ -187,7 +219,9 @@ def plan_item_edit(request, pk):
         item.save()
         messages.success(request, 'Zapisano własne parametry tej pozycji planu.')
         return redirect('plan_detail', pk=item.plan_id)
-    return _form(request, form, f'Parametry: {item.exercise.name}', reverse('plan_detail', args=[item.plan_id]))
+    source = f'Źródłowy zestaw parametrów: {item.parameter_code}. ' if item.parameter_code else ''
+    return _form(request, form, f'Parametry: {item.exercise.name}', reverse('plan_detail', args=[item.plan_id]),
+        description=source + 'Zmiany dotyczą wyłącznie tego planu i będą oznaczone jako ustawienie własne. Zmiana wariantu użyje jego własnego 1RM.')
 
 
 @require_POST
@@ -258,13 +292,31 @@ def exercise_list(request):
 def exercise_detail(request, pk):
     exercise = get_object_or_404(Exercise, pk=pk)
     profile = get_active_profile(request)
-    form = OneRepMaxForm(request.POST if request.method == 'POST' else None)
+    action = request.POST.get('action', 'manual') if request.method == 'POST' else None
+    form = OneRepMaxForm(request.POST if request.method == 'POST' and action == 'manual' else None)
+    calculator_form = EstimateRMForm(request.POST if request.method == 'POST' and action in ('estimate', 'save_estimate') else None)
+    estimate = None
     form.instance.profile = profile
     form.instance.exercise = exercise
-    if request.method == 'POST' and form.is_valid():
+    if request.method == 'POST' and action == 'manual' and form.is_valid():
         form.save()
         messages.success(request, 'Zapisano ręczny pomiar 1RM. Wyniki serii nie zmieniają 1RM.')
         return redirect('exercise_detail', pk=exercise.pk)
+    if request.method == 'POST' and action in ('estimate', 'save_estimate') and calculator_form.is_valid():
+        data = calculator_form.cleaned_data
+        try:
+            estimate = estimate_rm(data['weight'], data['reps'])
+        except ValidationError as exc:
+            calculator_form.add_error(None, exc)
+        else:
+            if action == 'save_estimate':
+                record = OneRepMax(profile=profile, exercise=exercise, value=estimate,
+                    date=data['date'], is_estimated=True,
+                    source_weight=data['weight'], source_reps=data['reps'])
+                record.full_clean()
+                record.save()
+                messages.success(request, 'Świadomie zapisano szacowaną wartość 1RM. Zwykłe serie treningowe nie zmieniają 1RM.')
+                return redirect('exercise_detail', pk=exercise.pk)
     entries = WorkoutExercise.objects.filter(exercise=exercise, workout__profile=profile,
         workout__status='completed').select_related('workout').order_by('workout__training_date', 'workout__started_at')
     records = []
@@ -291,6 +343,10 @@ def exercise_detail(request, pk):
         point.update(x=40 + (index / max(len(points) - 1, 1)) * 520,
                      y=170 - point['value'] / maximum * 130)
     return _render(request, 'exercise_detail', {'exercise': exercise, 'form': form,
+        'calculator_form': calculator_form, 'estimate': estimate,
+        'estimate_weight': calculator_form.cleaned_data.get('weight') if estimate is not None else None,
+        'estimate_reps': calculator_form.cleaned_data.get('reps') if estimate is not None else None,
+        'estimate_coefficient': ({4: '0,900', 5: '0,875', 6: '0,850', 7: '0,825', 8: '0,800', 9: '0,775', 10: '0,750'}.get(calculator_form.cleaned_data.get('reps')) if estimate is not None else None),
         'rm_history': OneRepMax.objects.filter(profile=profile, exercise=exercise).order_by('-date', '-pk'),
         'history': list(reversed(records)), 'plot_points': points,
         'chart_line': ' '.join(f"{p['x']:.1f},{p['y']:.1f}" for p in points),
@@ -315,12 +371,14 @@ def _serialized(queryset):
 @profile_required
 def export_json(request):
     profile = get_active_profile(request)
-    data = {'schema_version': 1, 'exported_at': timezone.now().isoformat(),
+    data = {'schema_version': 2, 'exported_at': timezone.now().isoformat(),
         'profile': _serialized(Profile.objects.filter(pk=profile.pk)),
         'body_weights': _serialized(BodyWeight.objects.filter(profile=profile)),
         'one_rep_max': _serialized(OneRepMax.objects.filter(profile=profile)),
         'exercises': _serialized(Exercise.objects.all()),
         'phases': _serialized(Phase.objects.all()),
+        'phase_slots': _serialized(PhaseSlot.objects.all()),
+        'strength_goals': _serialized(StrengthGoal.objects.all()),
         'recommendations': _serialized(Recommendation.objects.all()),
         'plans': _serialized(Plan.objects.filter(profile=profile)),
         'plan_items': _serialized(PlanItem.objects.filter(plan__profile=profile)),

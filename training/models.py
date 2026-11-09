@@ -58,6 +58,9 @@ class OneRepMax(models.Model):
     exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name='one_rep_maxes')
     date = models.DateField('Data', default=timezone.localdate)
     value = models.DecimalField('1RM (kg)', max_digits=8, decimal_places=2, validators=[POSITIVE])
+    is_estimated = models.BooleanField('Wartość szacowana', default=False)
+    source_weight = models.DecimalField('Ciężar próby (kg)', max_digits=8, decimal_places=2, null=True, blank=True, validators=[POSITIVE])
+    source_reps = models.PositiveIntegerField('Powtórzenia próby', null=True, blank=True)
 
     class Meta:
         ordering = ['-date', '-pk']
@@ -68,16 +71,33 @@ class OneRepMax(models.Model):
 
 
 class Phase(models.Model):
+    code = models.CharField('Skrót fazy', max_length=8, null=True, blank=True, unique=True)
     name = models.CharField('Nazwa fazy', max_length=160, unique=True)
     description = models.TextField('Opis', blank=True)
     is_demo = models.BooleanField('Dane DEMO', default=False)
     source = models.TextField('Źródło i wydanie / strona', blank=True)
+    sessions_min = models.PositiveIntegerField('Sesje w fazie od', null=True, blank=True)
+    sessions_max = models.PositiveIntegerField('Sesje w fazie do', null=True, blank=True)
+    sessions_unlimited = models.BooleanField('Bez określonego limitu sesji', default=False)
+    weekly_min = models.PositiveIntegerField('Sesje tygodniowo od', null=True, blank=True)
+    weekly_max = models.PositiveIntegerField('Sesje tygodniowo do', null=True, blank=True)
 
     class Meta:
         ordering = ['name']
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        for low, high in [('sessions_min', 'sessions_max'), ('weekly_min', 'weekly_max')]:
+            if getattr(self, low) is not None and getattr(self, high) is not None and getattr(self, high) < getattr(self, low):
+                errors[high] = 'Górna granica nie może być mniejsza od dolnej.'
+        if self.sessions_unlimited and (self.sessions_min is not None or self.sessions_max is not None):
+            errors['sessions_unlimited'] = 'Bez limitu: pozostaw liczbę sesji w fazie pustą.'
+        if errors:
+            raise ValidationError(errors)
 
 
 class Prescription(models.Model):
@@ -94,6 +114,12 @@ class Prescription(models.Model):
     tempo = models.CharField('Tempo', max_length=80, blank=True)
     rest_seconds = models.PositiveIntegerField('Odpoczynek (s)', null=True, blank=True)
     notes = models.TextField('Uwagi', blank=True)
+    parameter_code = models.CharField('Zestaw parametrów', max_length=8, blank=True)
+    reps_original = models.CharField('Oryginalny zapis powtórzeń', max_length=32, blank=True)
+    rest_seconds_max = models.PositiveIntegerField('Odpoczynek do (s)', null=True, blank=True)
+    series_load_mode = models.CharField('Obciążenie poszczególnych serii', max_length=12, choices=[('uniform', 'Wspólne zalecenie'), ('endpoints', 'US: pierwsza 60%, ostatnia 80% 1RM')], default='uniform')
+    chosen_sets = models.PositiveIntegerField('Wybrana liczba serii US', null=True, blank=True)
+    middle_weight = models.DecimalField('Środkowa seria US — własny ciężar (kg)', max_digits=8, decimal_places=2, null=True, blank=True, validators=[NONNEGATIVE])
 
     class Meta:
         abstract = True
@@ -101,10 +127,14 @@ class Prescription(models.Model):
     def clean(self):
         super().clean()
         errors = {}
-        for lower, upper in [('sets_min', 'sets_max'), ('reps_min', 'reps_max'), ('percent_min', 'percent_max')]:
+        for lower, upper in [('sets_min', 'sets_max'), ('reps_min', 'reps_max'), ('percent_min', 'percent_max'), ('rest_seconds', 'rest_seconds_max')]:
             low, high = getattr(self, lower), getattr(self, upper)
             if low is not None and high is not None and high < low:
                 errors[upper] = 'Górna granica nie może być mniejsza od dolnej.'
+        if self.series_load_mode == 'endpoints' and self.chosen_sets is not None and self.chosen_sets not in (2, 3):
+            errors['chosen_sets'] = 'Dla US wybierz 2 albo 3 serie.'
+        if self.middle_weight is not None and (self.series_load_mode != 'endpoints' or self.chosen_sets != 3):
+            errors['middle_weight'] = 'Własny ciężar środkowej serii dotyczy US z trzema seriami.'
         if errors:
             raise ValidationError(errors)
 
@@ -119,6 +149,43 @@ class Recommendation(Prescription):
 
     def __str__(self):
         return f'{self.phase}: {self.exercise}'
+
+
+class PhaseSlot(Prescription):
+    phase = models.ForeignKey(Phase, on_delete=models.CASCADE, related_name='slots')
+    position = models.PositiveIntegerField('Kolejność', validators=[MinValueValidator(1)])
+    title = models.CharField('Pozycja w programie', max_length=160)
+    category = models.CharField('Kategoria pozycji', max_length=16, choices=[('hip', 'Wyprost biodra'), ('shoulder', 'Obręcz barkowa'), ('weakness', 'Osobiste słabości'), ('fixed', 'Ćwiczenie wskazane')])
+    default_exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name='default_phase_slots')
+    allowed_exercises = models.ManyToManyField(Exercise, related_name='phase_slots', verbose_name='Dostępne warianty')
+
+    class Meta:
+        ordering = ['position', 'pk']
+        constraints = [models.UniqueConstraint(fields=['phase', 'position'], name='phase_slot_position')]
+
+    def __str__(self):
+        return f'{self.phase}: {self.position}. {self.title}'
+
+
+class StrengthGoal(models.Model):
+    phase = models.ForeignKey(Phase, on_delete=models.CASCADE, related_name='strength_goals')
+    exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name='strength_goals')
+    multiplier_min = models.DecimalField('Mnożnik masy ciała od', max_digits=5, decimal_places=2, validators=[POSITIVE])
+    multiplier_max = models.DecimalField('Mnożnik masy ciała do', max_digits=5, decimal_places=2, validators=[POSITIVE])
+    target_reps = models.PositiveIntegerField('Powtórzenia celu końcowego', default=6)
+    source = models.TextField('Źródło', blank=True)
+    notes = models.TextField('Ograniczenia i uwagi', blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['phase', 'exercise'], name='strength_goal_phase_exercise')]
+
+    def clean(self):
+        super().clean()
+        if self.multiplier_min is not None and self.multiplier_max is not None and self.multiplier_max < self.multiplier_min:
+            raise ValidationError({'multiplier_max': 'Górna granica nie może być mniejsza od dolnej.'})
+
+    def __str__(self):
+        return f'{self.phase}: zakres celu końcowego — {self.exercise}'
 
 
 class Plan(models.Model):
@@ -138,9 +205,21 @@ class PlanItem(Prescription):
     exercise = models.ForeignKey(Exercise, on_delete=models.PROTECT, related_name='plan_items')
     position = models.PositiveIntegerField('Kolejność', default=0)
     overridden = models.BooleanField('Ręczna zmiana zaleceń', default=False)
+    slot = models.ForeignKey(PhaseSlot, on_delete=models.SET_NULL, null=True, blank=True, related_name='plan_items')
 
     class Meta:
         ordering = ['position', 'pk']
+        constraints = [models.UniqueConstraint(fields=['plan', 'slot'], condition=Q(slot__isnull=False), name='plan_slot_unique')]
+
+    def clean(self):
+        super().clean()
+        if self.slot_id:
+            if self.slot.phase_id != self.plan.phase_id:
+                raise ValidationError({'slot': 'Pozycja pochodzi z innej fazy niż plan.'})
+            if self.exercise_id and not self.slot.allowed_exercises.filter(pk=self.exercise_id).exists():
+                raise ValidationError({'exercise': 'Ćwiczenie nie jest wariantem tej pozycji.'})
+            if self.plan.phase.code == 'AA' and self.slot.category == 'hip' and self.plan.items.filter(slot__category='hip', exercise_id=self.exercise_id).exclude(pk=self.pk).exists():
+                raise ValidationError({'exercise': 'W pozycjach wyprostu biodra AA wybierz różne ćwiczenia.'})
 
     def __str__(self):
         return f'{self.plan}: {self.position}. {self.exercise}'

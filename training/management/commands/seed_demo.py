@@ -42,17 +42,18 @@ class Command(BaseCommand):
                 "source": "Dane demonstracyjne aplikacji; nie są programem Joe Friela.",
             },
         )
-        Phase.objects.get_or_create(
-            name="Joe Friel — Brak danych",
-            defaults={
-                "description": (
-                    "Brak danych. Uzupełnij fazy i zalecenia wyłącznie na podstawie "
-                    "dostarczonych materiałów lub zweryfikowanych danych projektu."
-                ),
-                "is_demo": False,
-                "source": "",
-            },
-        )
+        if not Phase.objects.filter(code__in=['AA', 'SM', 'WM', 'WS', 'US']).exists():
+            Phase.objects.get_or_create(
+                name="Joe Friel — Brak danych",
+                defaults={
+                    "description": (
+                        "Brak danych. Uzupełnij fazy i zalecenia wyłącznie na podstawie "
+                        "dostarczonych materiałów lub zweryfikowanych danych projektu."
+                    ),
+                    "is_demo": False,
+                    "source": "",
+                },
+            )
         definitions = (
             {
                 "name": "DEMO — przysiad",
@@ -131,5 +132,5 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             "Dane DEMO gotowe: profil, masa ciała, 1RM, trzy ćwiczenia i plan. "
             "To przykładowe dane aplikacji, NIE zalecenia Joe Friela. "
-            "Program Friela: Brak danych."
+            "Fazy z materiałów użytkownika są oddzielnymi danymi."
         ))

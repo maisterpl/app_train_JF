@@ -1,4 +1,16 @@
-# Weryfikacja wykonana 6 listopada 2026
+# Weryfikacja aplikacji
+
+## Aktualizacja faz Friela — 9 listopada 2026
+
+Po przywróceniu środowiska uruchomiono pełny zestaw: **80 testów Django, wszystkie poprawne**, na Pythonie 3.12.14 i 3.13.17. Migracje 0004 i 0005 są zastosowane, `check` nie zgłasza problemów, a `makemigrations --check --dry-run` nie wykrywa brakujących migracji.
+
+Nowe testy obejmują pięć faz, 32 pozycje, kolejność i warianty, osobne parametry AA, zapis „+”, cele SM oddzielone od ciężaru treningowego, obciążenia kolejnych serii US, brak domyślnych 70%, świadomy zapis szacowanego 1RM i zachowanie wcześniejszych kopii treningów.
+
+W Chromium ponownie przeszły oba scenariusze `browser_smoke.cjs` (komputer i telefon/offline) oraz cztery przypadki `browser_sync_edges.cjs`. Dodatkowo `browser_friel.cjs` zakończył się poprawnie we wszystkich sześciu sprawdzanych przypadkach: US z dwoma seriami i własnym 1RM wariantu, własny środkowy ciężar, US z trzema seriami offline i synchronizacją, osobny cel SM i pomocnicze AA, brak celu dla nieznanego wariantu oraz własne powtórzenia z zachowaniem oryginalnego zapisu źródłowego.
+
+Dane odwzorowują materiał dostarczony przez użytkownika; pełna tabela 13.3 oraz przypis AA ze strony 236 pozostają do uzupełnienia. Nie przeprowadzono niezależnej weryfikacji pełnej książki. Ograniczenia dotyczące fizycznego Windows, telefonu i Safari/iOS opisane niżej nadal obowiązują.
+
+Poniżej zachowano raport pierwszej wersji z 6 listopada 2026.
 
 ## Uruchomione środowisko
 
@@ -34,4 +46,4 @@ W wariancie mobilnym przygotowano sesję przez interfejs, wyłączono połączen
 
 Nie uruchamiano projektu na fizycznym Windows, fizycznym telefonie ani w Safari/iOS. Python 3.13 został uruchomiony i przetestowany na Linux. Mobilny Chromium jest emulacją, nie testem konkretnego urządzenia. Nie konfigurowano domeny i certyfikatu HTTPS użytkownika ani instalacji na jego ekranie głównym; te kroki opisuje README. Zachowanie magazynu po usunięciu danych witryny lub automatycznym czyszczeniu przez system nie jest gwarantowane.
 
-Nie zweryfikowano programu Joe Friela: nie dostarczono materiałów. DEMO pozostaje oddzielnym zestawem technicznym. Nie wdrażano synchronizacji równoczesnych zmian z wielu urządzeń ani korekt zakończonych sesji.
+W pierwszej wersji z 6 listopada nie dostarczono jeszcze materiałów Joe Friela i dostępne było wyłącznie DEMO. Późniejszą implementację dostarczonych danych opisuje aktualizacja powyżej. DEMO pozostaje oddzielnym zestawem technicznym. Nie wdrażano synchronizacji równoczesnych zmian z wielu urządzeń ani korekt zakończonych sesji.

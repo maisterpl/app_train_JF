@@ -5,11 +5,13 @@ from .models import (
     Exercise,
     OneRepMax,
     Phase,
+    PhaseSlot,
     Plan,
     PlanItem,
     Profile,
     Recommendation,
     SyncReceipt,
+    StrengthGoal,
     Workout,
     WorkoutExercise,
     WorkoutSet,
@@ -42,8 +44,8 @@ class BodyWeightAdmin(admin.ModelAdmin):
 
 @admin.register(OneRepMax)
 class OneRepMaxAdmin(admin.ModelAdmin):
-    list_display = ("profile", "exercise", "date", "value")
-    list_filter = ("profile", "exercise")
+    list_display = ("profile", "exercise", "date", "value", "is_estimated")
+    list_filter = ("profile", "exercise", "is_estimated")
     date_hierarchy = "date"
 
 
@@ -59,12 +61,37 @@ class RecommendationInline(admin.StackedInline):
     extra = 0
 
 
+class PhaseSlotInline(admin.StackedInline):
+    model = PhaseSlot
+    extra = 0
+    ordering = ('position',)
+    filter_horizontal = ('allowed_exercises',)
+
+
+class StrengthGoalInline(admin.TabularInline):
+    model = StrengthGoal
+    extra = 0
+
+
 @admin.register(Phase)
 class PhaseAdmin(admin.ModelAdmin):
-    list_display = ("name", "is_demo", "source")
+    list_display = ("name", "code", "is_demo", "sessions_min", "sessions_max", "weekly_min", "weekly_max")
     list_filter = ("is_demo",)
     search_fields = ("name", "source")
-    inlines = (RecommendationInline,)
+    inlines = (PhaseSlotInline, StrengthGoalInline, RecommendationInline)
+
+
+@admin.register(PhaseSlot)
+class PhaseSlotAdmin(admin.ModelAdmin):
+    list_display = ('phase', 'position', 'title', 'category', 'parameter_code', 'default_exercise')
+    list_filter = ('phase', 'category', 'parameter_code')
+    filter_horizontal = ('allowed_exercises',)
+
+
+@admin.register(StrengthGoal)
+class StrengthGoalAdmin(admin.ModelAdmin):
+    list_display = ('phase', 'exercise', 'multiplier_min', 'multiplier_max', 'target_reps')
+    list_filter = ('phase',)
 
 
 @admin.register(Recommendation)

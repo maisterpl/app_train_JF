@@ -54,11 +54,36 @@ Obliczenia rozróżniają procent 1RM i procent masy ciała. Wykorzystują najno
 
 Rozpoczęta sesja zachowuje kopię parametrów, masy, 1RM i wyliczeń. Zmiana planu lub późniejszy pomiar nie przelicza historii. Zakończona sesja nie przyjmuje nowych serii przez endpoint aktywnego treningu. W tej wersji nie ma odrębnego narzędzia korekty zakończonych treningów.
 
-## DEMO i brakujące dane Joe Friela
+## Fazy z materiałów użytkownika i DEMO
+
+Migracje automatycznie dodają pięć faz: **AA — adaptacja anatomiczna**, **SM — siła maksymalna**, **WM — wytrzymałość mocy**, **WS — wytrzymałość siłowa**, **US — utrzymanie siły**. Dane odwzorowują dostarczony przez użytkownika opis tabel 13.1–13.7 z „Biblii treningu kolarza górskiego”. Nie dodano fazy MT. Materiał źródłowy i ograniczenia zapisano w [dokumentacji danych](docs/FRIEL_DANE.md).
+
+Faza ma liczbę sesji i częstotliwość tygodniową, a każda pozycja własny zestaw parametrów. Plan SM, WM, WS lub US może zawierać główne ćwiczenia tej fazy oraz pomocnicze z parametrami AA. Zakresy nie są automatycznie przeliczane na tygodnie, a aplikacja nie zmienia fazy po ustalonej liczbie treningów.
+
+Przy dodawaniu ćwiczeń wybierz pozycje i ich warianty. Dwa wyprosty biodra w AA wymagają różnych ćwiczeń. „Osobiste słabości” to kategoria wyboru, nie osobne ćwiczenie. Po zmianie wariantu obciążenia korzystają z jego własnego 1RM.
+
+**Cele SM** to osobne zakresy ciężaru na 6 powtórzeń pod koniec fazy, wyliczane z masy ciała. Nie ustawiają ciężaru pierwszego treningu ani indywidualnego celu na jednej z granic zakresu. Podano tylko dostarczone mnożniki przysiadu oraz wiosłowań; brak mnożników wypychania nogami i stepu jest widoczny jako brak danych.
+
+**US** wymaga wybrania w planie 2 albo 3 serii. Pierwsza ma 60%, ostatnia 80% 1RM. Przy trzech seriach środkowa nie ma źródłowego zalecenia: jej ciężar można wpisać jako ustawienie własne w planie lub ręcznie podczas treningu. Nie dodano domyślnych 70%. Zalecenie na ekranie treningu zmienia się zgodnie z numerem serii.
+
+W szczegółach ćwiczenia znajduje się **kalkulator szacowanego 1RM** z tabeli 13.7, dla 4–10 powtórzeń wykonanych do granicy możliwości. Wyświetlenie wyniku niczego nie zapisuje; dopiero osobny przycisk zapisuje pomiar oznaczony jako szacowany. Zapis zwykłej serii nadal nie aktualizuje 1RM.
 
 `python manage.py seed_demo` dodaje wyraźnie oznaczony profil, fazę, ćwiczenia, pomiary i plan DEMO. Polecenie można uruchamiać ponownie bez tworzenia kolejnych kopii tego samego zestawu. Parametry służą wyłącznie sprawdzeniu aplikacji i **nie są zaleceniami Joe Friela ani gotową receptą treningową**.
 
-Faza **Joe Friel — Brak danych** jest miejscem na zweryfikowane materiały. Nie wpisano do niej wymyślonych zaleceń. Szczegółowa lista potrzebnych danych znajduje się w [docs/FRIEL_DANE.md](docs/FRIEL_DANE.md). Dane uzupełnia administrator w panelu Django.
+Do pełnego odwzorowania pozostają kompletna tabela celów SM 13.3 oraz brakujący przypis AA ze strony 236. Nie odtworzono ich z domysłów. Dla ćwiczeń tułowia z nieustalonym sposobem obciążania aplikacja pokazuje brak danych zamiast podstawiać masę ciała jako 1RM. Administrator może zarządzać fazami, pozycjami, wariantami i celami w panelu Django.
+
+### Aktualizacja istniejącej instalacji
+
+Zachowaj kopię `db.sqlite3`, zatrzymaj serwer i wykonaj w aktywnym venv:
+
+```powershell
+git pull origin main
+python -m pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver
+```
+
+Nowe definicje zostają dodane przez migracje. Dotychczasowe plany, pomiary i kopie rozpoczętych oraz zakończonych treningów pozostają zachowane. Istniejące plany nie są automatycznie zastępowane nowymi zaleceniami; utwórz plan z wybraną fazą, aby skorzystać z nowej bazy.
 
 ## Telefon, HTTPS i PWA
 
@@ -130,9 +155,10 @@ W drugim terminalu w katalogu projektu uruchom:
 ```powershell
 npm run test:browser
 node scripts/browser_sync_edges.cjs
+node scripts/browser_friel.cjs
 ```
 
-Skrypty sprawdzają aplikację w Chromium, w tym warianty rozmiaru ekranu i zachowanie kolejki offline. Test `test:browser` tworzy nowe sesje treningowe w danych DEMO i zapisuje w nich serie. Test `browser_sync_edges.cjs` tworzy oddzielny profil QA i usuwa go po zakończeniu; sprawdza utratę potwierdzenia oraz edycję podczas synchronizacji. Używaj developerskiej bazy, a nie jedynej kopii własnych wyników. Wyniki konkretnego uruchomienia podaje raport końcowy prac.
+Skrypty sprawdzają aplikację w Chromium, w tym warianty rozmiaru ekranu i zachowanie kolejki offline. Test `test:browser` tworzy nowe sesje treningowe w danych DEMO i zapisuje w nich serie. Testy `browser_sync_edges.cjs` i `browser_friel.cjs` tworzą oddzielne profile QA i usuwają je po zakończeniu. Pierwszy sprawdza utratę potwierdzenia oraz edycję podczas synchronizacji; drugi zalecenia kolejnych serii US, brak automatycznego ciężaru z celu SM i zachowanie parametrów AA. Używaj developerskiej bazy, a nie jedynej kopii własnych wyników. Wyniki konkretnego uruchomienia podaje raport weryfikacji.
 
 ## Eksport i kopie bezpieczeństwa
 

@@ -198,6 +198,14 @@ function range(min, max, unit = '') {
   return `${value}${max != null && String(max) !== String(value) ? `–${max}` : ''}${unit}`;
 }
 
+function repetitionLabel(snapshot) {
+  const source = snapshot.reps_original || '';
+  const bounds = source.match(/\d+/g)?.map(Number) || [];
+  const same = bounds.length && Number(snapshot.reps_min) === bounds[0] &&
+    Number(snapshot.reps_max ?? snapshot.reps_min) === bounds[bounds.length - 1];
+  return same ? source : range(snapshot.reps_min, snapshot.reps_max);
+}
+
 function resultLabel(set, mode) {
   return mode === 'time' ? `${set.seconds ?? '—'} s` : `${set.weight ?? '—'} kg × ${set.reps ?? '—'} powt.`;
 }
@@ -286,10 +294,37 @@ class WorkoutApp {
   draft() {
     const exercise = this.current();
     if (!this.drafts.has(exercise.id)) {
-      const snapshot = exercise.snapshot;
-      this.drafts.set(exercise.id, {id: null, weight: snapshot.load?.min ?? (snapshot.basis === 'none' ? '0' : ''), reps: snapshot.reps_min ?? '', seconds: snapshot.seconds ?? '', note: ''});
+      this.drafts.set(exercise.id, this.newDraft(exercise));
     }
     return this.drafts.get(exercise.id);
+  }
+
+  seriesNumber(exercise, draft = this.drafts.get(exercise.id)) {
+    const editing = draft?.id && exercise.sets.find(set => set.id === draft.id);
+    return editing ? editing.number : exercise.sets.length + 1;
+  }
+
+  seriesLoad(exercise, draft = this.drafts.get(exercise.id)) {
+    const snapshot = exercise.snapshot;
+    if (snapshot.series_load_mode !== 'endpoints') return snapshot.load || {};
+    const loads = snapshot.load?.series_loads || snapshot.series_loads || [];
+    const number = this.seriesNumber(exercise, draft);
+    return loads[number - 1] || {
+      min: null, max: null,
+      explanation: 'Brak danych dla dodatkowej serii. Wpisz ciężar jako ustawienie własne.',
+      missing: 'Liczba serii przekracza liczbę wybraną w planie.', custom: true,
+    };
+  }
+
+  newDraft(exercise, previous = null) {
+    const snapshot = exercise.snapshot;
+    // US prescribes first and last sets individually. A completed set must not
+    // carry its weight into the next set, especially into the unknown middle set.
+    const prescribed = this.seriesLoad(exercise, {id: null});
+    const weight = snapshot.series_load_mode === 'endpoints'
+      ? (prescribed.min ?? '')
+      : (previous?.weight ?? prescribed.min ?? (snapshot.basis === 'none' ? '0' : ''));
+    return {id: null, weight, reps: previous?.reps ?? snapshot.reps_min ?? '', seconds: previous?.seconds ?? snapshot.seconds ?? '', note: ''};
   }
 
   message(message) {
@@ -339,17 +374,25 @@ class WorkoutApp {
     const index = workout.exercises.indexOf(exercise);
     const isTime = s.mode === 'time';
     const previous = s.previous_results || [];
-    const load = s.load || {};
+    const load = this.seriesLoad(exercise, d);
+    const seriesNumber = this.seriesNumber(exercise, d);
+    const bySeries = s.series_load_mode === 'endpoints';
+    const seriesLoads = s.load?.series_loads || s.series_loads || [];
+    const endGoal = s.end_goal;
+    const repetitions = repetitionLabel(s);
     this.root.innerHTML = `
-      <div class="workout-heading"><div><p class="eyebrow">${escapeHTML(workout.plan_name)} · ${escapeHTML(workout.phase_name)}</p><p>Profil: ${escapeHTML(workout.profile_name || `#${workout.profile_id}`)} · Ćwiczenie ${index + 1} z ${workout.exercises.length}</p><h1>${escapeHTML(s.name)}</h1></div><span class="badge">${exercise.skipped ? 'Pominięte' : 'W trakcie'}</span></div>
+      <div class="workout-heading"><div><p class="eyebrow">${escapeHTML(workout.plan_name)} · ${escapeHTML(workout.phase_name)}</p><p>Profil: ${escapeHTML(workout.profile_name || `#${workout.profile_id}`)} · Ćwiczenie ${index + 1} z ${workout.exercises.length}</p><h1>${escapeHTML(s.name)}</h1>${s.parameter_code ? `<p class="parameter-origin">Zestaw parametrów tego ćwiczenia: <strong>${escapeHTML(s.parameter_code)}</strong></p>` : ''}</div><span class="badge">${exercise.skipped ? 'Pominięte' : 'W trakcie'}</span></div>
       <div id="workout-message" class="notice" role="status" ${this.error ? '' : 'hidden'}>${escapeHTML(this.error)}</div>
       <div class="workout-grid"><section class="card">
-        <div class="workout-targets"><div><span>Serie</span><strong>${escapeHTML(range(s.sets_min, s.sets_max))}</strong></div><div><span>${isTime ? 'Czas' : 'Powtórzenia'}</span><strong>${escapeHTML(isTime ? range(s.seconds, null, ' s') : range(s.reps_min, s.reps_max))}</strong></div><div><span>Obciążenie</span><strong>${escapeHTML(s.basis === 'none' ? 'Bez obciążenia' : range(load.min, load.max, ' kg'))}</strong></div></div>
+        <div class="workout-targets"><div><span>Serie</span><strong>${escapeHTML(bySeries ? `${s.chosen_sets ?? 'Brak danych'} wybrane (${range(s.sets_min, s.sets_max)})` : range(s.sets_min, s.sets_max))}</strong></div><div><span>${isTime ? 'Czas' : 'Powtórzenia'}</span><strong>${escapeHTML(isTime ? range(s.seconds, null, ' s') : repetitions)}</strong></div><div><span>${bySeries ? `Obciążenie serii ${seriesNumber}` : 'Obciążenie'}</span><strong>${escapeHTML(s.basis === 'none' ? 'Bez obciążenia' : range(load.min, load.max, ' kg'))}</strong></div></div>
         <p>${escapeHTML(load.explanation || 'Brak danych o obciążeniu')}</p>
-        ${load.missing ? `<p class="notice">${escapeHTML(Array.isArray(load.missing) ? load.missing.join('; ') : load.missing)} <a href="/profiles/">Uzupełnij profil i masę</a> · <a href="/exercises/">Wartości 1RM</a></p>` : ''}
-        <p><b>Tempo:</b> ${escapeHTML(s.tempo || 'Brak danych')} · <b>Odpoczynek:</b> ${escapeHTML(s.rest_seconds == null ? 'Brak danych' : `${s.rest_seconds} s`)}</p>
+        ${s.reps_original && repetitions !== s.reps_original ? `<p class="muted small">Powtórzenia według źródła: ${escapeHTML(s.reps_original)}. Powyżej pokazano własne parametry planu.</p>` : ''}
+        ${bySeries ? `<section class="series-prescriptions"><h2>Obciążenie każdej serii</h2><ol>${seriesLoads.map((series, number) => `<li${number + 1 === seriesNumber ? ' aria-current="step"' : ''}><strong>Seria ${number + 1}:</strong> ${escapeHTML(series.explanation || series.missing || 'Brak danych')}${series.is_custom || series.custom ? ' · Ustawienie własne' : ''}</li>`).join('')}</ol><p class="muted small">Dla trzech serii źródło określa tylko pierwszą (60%) i ostatnią (80%). Środkowy ciężar wymaga ustawienia własnego.</p></section>` : ''}
+        ${endGoal ? `<section class="end-goal notice"><h2>Cel końcowy na ${escapeHTML(endGoal.target_reps || 6)} powtórzeń</h2><p>${escapeHTML(endGoal.explanation || endGoal.missing || 'Brak danych')}</p><p>To zakres celu pod koniec fazy SM. Nie jest ciężarem pierwszego treningu ani automatycznie wybranym celem konkretnej osoby.</p>${endGoal.missing ? `<p>${escapeHTML(endGoal.missing)}</p>` : ''}</section>` : ''}
+        ${load.missing ? `<p class="notice">${escapeHTML(Array.isArray(load.missing) ? load.missing.join('; ') : load.missing)} ${bySeries ? 'Możesz wpisać ciężar tej serii ręcznie jako ustawienie własne.' : '<a href="/profiles/">Uzupełnij profil i masę</a> · <a href="/exercises/">Wartości 1RM</a>'}</p>` : ''}
+        <p><b>Tempo:</b> ${escapeHTML(s.tempo || 'Brak danych')} · <b>Odpoczynek:</b> ${escapeHTML(range(s.rest_seconds, s.rest_seconds_max, ' s'))}</p>
         <details><summary>Technika i uwagi</summary><p>${escapeHTML(s.description || 'Brak danych')}</p><p>${escapeHTML(s.notes || '')}</p><p>Zapis ciężaru: ${escapeHTML(s.load_notation || 'Brak danych')}</p></details>
-        <h2>${d.id ? 'Edytuj serię' : 'Zapisz serię'}</h2>
+        <h2>${d.id ? `Edytuj serię ${seriesNumber}` : `Zapisz serię ${seriesNumber}`}</h2>
         <form id="set-form" data-exercise-id="${exercise.id}" novalidate>
           <label for="set-weight">Ciężar (kg)</label><input id="set-weight" name="weight" class="workout-value" type="number" min="0" step="0.01" inputmode="decimal" value="${escapeHTML(d.weight)}" required>
           <div class="weight-controls" aria-label="Zmiana ciężaru">${[-10,-5,-1,1,5,10].map(value => `<button class="button button-secondary" type="button" data-action="adjust" data-field="weight" data-delta="${value}">${value > 0 ? '+' : '−'}${Math.abs(value)}</button>`).join('')}</div>
@@ -415,7 +458,8 @@ class WorkoutApp {
     this.busy = true;
     try {
       await this.commit({type: 'set.upsert', exercise_id: exercise.id, set}, {restDeadline: seconds ? Date.now() + seconds * 1000 : null});
-      this.drafts.set(exercise.id, {...d, id: null, note: ''});
+      const updatedExercise = this.workout.exercises.find(row => row.id === exercise.id);
+      this.drafts.set(exercise.id, this.newDraft(updatedExercise, d));
       this.render(false);
     } catch (error) { this.message(error.message); }
     finally {
