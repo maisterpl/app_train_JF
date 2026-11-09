@@ -1,5 +1,11 @@
 # Weryfikacja aplikacji
 
+## Widoczność gotowych zestawów — 9 listopada 2026
+
+Po dodaniu katalogu „Gotowe zestawy Friela” pełny zestaw **91 testów Django przeszedł na Pythonie 3.12 i 3.13**. Jedenaście nowych testów obejmuje pięć kart faz, wstępne wypełnienie formularza, zaznaczone domyślne pozycje, różne warianty wyprostu biodra AA, świadomy wybór 2/3 serii US, odznaczanie pozycji i brak zmian danych przy samym przeglądaniu.
+
+`node scripts/browser_phase_templates.cjs` przeszedł dla komputera 1440 × 1000 oraz telefonu emulowanego 390 × 844. W obu rozmiarach sprawdzono widoczne zestawy AA/SM/WM/WS/US z 8/6/6/6/6 pozycjami, przygotowanie planu AA, usunięcie jednej pozycji przed zatwierdzeniem oraz plan US ze świadomie wybranymi trzema seriami. Nie stwierdzono poziomego przepełnienia strony. Skrypt tworzy i usuwa własny profil QA.
+
 ## Aktualizacja faz Friela — 9 listopada 2026
 
 Po przywróceniu środowiska uruchomiono pełny zestaw: **80 testów Django, wszystkie poprawne**, na Pythonie 3.12.14 i 3.13.17. Migracje 0004 i 0005 są zastosowane, `check` nie zgłasza problemów, a `makemigrations --check --dry-run` nie wykrywa brakujących migracji.

@@ -99,17 +99,36 @@ def profile_detail(request, profile_id):
 
 @profile_required
 def plans(request):
-    return _render(request, 'plans', {'plans': Plan.objects.filter(profile=get_active_profile(request)).select_related('phase')})
+    codes = ('AA', 'SM', 'WM', 'WS', 'US')
+    available = {phase.code: phase for phase in Phase.objects.filter(
+        code__in=codes).prefetch_related('slots__default_exercise')}
+    return _render(request, 'plans', {
+        'plans': Plan.objects.filter(profile=get_active_profile(request)).select_related('phase'),
+        'phase_templates': [available[code] for code in codes if code in available],
+    })
 
 
 @profile_required
 def plan_create(request):
-    form = PlanForm(request.POST if request.method == 'POST' else None)
+    initial = {}
+    try:
+        phase_id = int(request.GET.get('phase', ''))
+    except (TypeError, ValueError):
+        phase_id = None
+    phase = Phase.objects.filter(pk=phase_id, code__in=('AA', 'SM', 'WM', 'WS', 'US')).first()
+    preset = request.GET.get('preset') == '1'
+    if phase:
+        initial = {'name': phase.name, 'phase': phase.pk}
+    form = PlanForm(request.POST if request.method == 'POST' else None, initial=initial)
     form.instance.profile = get_active_profile(request)
     if request.method == 'POST' and form.is_valid():
         p = form.save()
-        return redirect('plan_add', pk=p.pk)
-    return _form(request, form, 'Nowy plan', reverse('plans'))
+        url = reverse('plan_add', args=[p.pk])
+        return redirect(url + '?preset=1' if preset and p.phase.slots.exists() else url)
+    return _form(request, form, 'Nowy plan', reverse('plans'), description=(
+        'Gotowy zestaw zawiera ćwiczenia i parametry wybranej fazy. '
+        'Po zapisaniu nazwy sprawdzisz warianty i zatwierdzisz wybrane pozycje.'
+        if preset else 'Wybierz fazę, a następnie dodaj przypisane do niej ćwiczenia.'))
 
 
 def _plan(request, pk):
@@ -126,7 +145,9 @@ def plan_edit(request, pk):
         p = form.save()
         if old_phase != p.phase_id:
             p.items.update(overridden=True, slot=None)
-        messages.success(request, 'Zapisano plan. Zachowano dotychczasowe pozycje.')
+        messages.success(request, 'Zapisano plan. Zachowano dotychczasowe pozycje. '
+                         'Ćwiczenia nowej fazy dodasz przyciskiem „Dodaj ćwiczenia”; '
+                         'gotowy zestaw znajdziesz na liście planów.')
         return redirect('plan_detail', pk=p.pk)
     return _form(request, form, 'Edytuj plan', reverse('plan_detail', args=[p.pk]))
 
@@ -177,7 +198,11 @@ def plan_add(request, pk):
     p = _plan(request, pk)
     has_slots = p.phase.slots.exists()
     form_type = AddPhaseSlotsForm if has_slots else AddExercisesForm
-    form = form_type(request.POST if request.method == 'POST' else None, plan=p)
+    preset = request.GET.get('preset') == '1'
+    options = {'plan': p}
+    if has_slots:
+        options['preselect'] = preset
+    form = form_type(request.POST if request.method == 'POST' else None, **options)
     if request.method == 'POST' and form.is_valid():
         with transaction.atomic():
             Plan.objects.select_for_update().get(pk=p.pk)
@@ -200,7 +225,7 @@ def plan_add(request, pk):
         messages.success(request, 'Dodano wybrane ćwiczenia.')
         return redirect('plan_detail', pk=p.pk)
     return _render(request, 'plan_add', {'plan': p, 'form': form,
-        'has_slots': has_slots, 'slot_rows': form.slot_rows() if has_slots else [],
+        'has_slots': has_slots, 'slot_rows': form.slot_rows() if has_slots else [], 'preset': preset,
         'recommendations': Recommendation.objects.filter(phase=p.phase).select_related('exercise')})
 
 

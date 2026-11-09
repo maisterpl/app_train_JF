@@ -58,6 +58,10 @@ Rozpoczęta sesja zachowuje kopię parametrów, masy, 1RM i wyliczeń. Zmiana pl
 
 Migracje automatycznie dodają pięć faz: **AA — adaptacja anatomiczna**, **SM — siła maksymalna**, **WM — wytrzymałość mocy**, **WS — wytrzymałość siłowa**, **US — utrzymanie siły**. Dane odwzorowują dostarczony przez użytkownika opis tabel 13.1–13.7 z „Biblii treningu kolarza górskiego”. Nie dodano fazy MT. Materiał źródłowy i ograniczenia zapisano w [dokumentacji danych](docs/FRIEL_DANE.md).
 
+Gotowe ćwiczenia znajdziesz w **Plany → Gotowe zestawy Friela**: AA ma 8 pozycji, a SM, WM, WS i US po 6. Każdy zestaw pokazuje ćwiczenia domyślne i źródłowy zestaw parametrów. Użyj **Przygotuj plan AA/SM/WM/WS/US**, zapisz nazwę, a następnie zatwierdź domyślnie zaznaczone pozycje lub odznacz niepotrzebne i zmień warianty. W US jawnie wybierasz 2 albo 3 serie ćwiczeń głównych. Zestawy faz są wspólną bazą; zapisane plany należą do aktywnego profilu.
+
+Sama zmiana fazy już istniejącego planu nie zastępuje jego ćwiczeń. Aby skorzystać z pełnego zestawu innej fazy, przygotuj nowy plan z jej karty. Do istniejącego planu można też świadomie dodać pozycje przyciskiem **Dodaj ćwiczenia**.
+
 Faza ma liczbę sesji i częstotliwość tygodniową, a każda pozycja własny zestaw parametrów. Plan SM, WM, WS lub US może zawierać główne ćwiczenia tej fazy oraz pomocnicze z parametrami AA. Zakresy nie są automatycznie przeliczane na tygodnie, a aplikacja nie zmienia fazy po ustalonej liczbie treningów.
 
 Przy dodawaniu ćwiczeń wybierz pozycje i ich warianty. Dwa wyprosty biodra w AA wymagają różnych ćwiczeń. „Osobiste słabości” to kategoria wyboru, nie osobne ćwiczenie. Po zmianie wariantu obciążenia korzystają z jego własnego 1RM.
@@ -84,6 +88,8 @@ python manage.py runserver
 ```
 
 Nowe definicje zostają dodane przez migracje. Dotychczasowe plany, pomiary i kopie rozpoczętych oraz zakończonych treningów pozostają zachowane. Istniejące plany nie są automatycznie zastępowane nowymi zaleceniami; utwórz plan z wybraną fazą, aby skorzystać z nowej bazy.
+
+Jeżeli po aktualizacji brakuje definicji faz lub ich ćwiczeń, polecenie `python manage.py seed_friel` uzupełnia brakujące dane źródłowe, zachowując istniejące wpisy. DEMO jest oddzielnym zestawem i nie zastępuje ćwiczeń Friela.
 
 ## Telefon, HTTPS i PWA
 
@@ -156,6 +162,7 @@ W drugim terminalu w katalogu projektu uruchom:
 npm run test:browser
 node scripts/browser_sync_edges.cjs
 node scripts/browser_friel.cjs
+node scripts/browser_phase_templates.cjs
 ```
 
 Skrypty sprawdzają aplikację w Chromium, w tym warianty rozmiaru ekranu i zachowanie kolejki offline. Test `test:browser` tworzy nowe sesje treningowe w danych DEMO i zapisuje w nich serie. Testy `browser_sync_edges.cjs` i `browser_friel.cjs` tworzą oddzielne profile QA i usuwają je po zakończeniu. Pierwszy sprawdza utratę potwierdzenia oraz edycję podczas synchronizacji; drugi zalecenia kolejnych serii US, brak automatycznego ciężaru z celu SM i zachowanie parametrów AA. Używaj developerskiej bazy, a nie jedynej kopii własnych wyników. Wyniki konkretnego uruchomienia podaje raport weryfikacji.

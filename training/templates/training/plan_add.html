@@ -4,6 +4,7 @@
 <a class="back-link" href="{% url 'plan_detail' plan.pk %}">← Wróć do planu</a>
 <div class="page-heading"><div><p class="eyebrow">{{ plan.name }}</p><h1>Wybierz ćwiczenia<span class="accent">.</span></h1><p class="lead">Zaznacz pozycje i wybierz warianty ćwiczeń. Do planu trafią tylko zaznaczone pozycje.</p></div></div>
 {% include 'training/phase_summary.html' %}
+{% if preset %}<p class="notice">Gotowy zestaw jest zaznaczony. Sprawdź warianty, odznacz niepotrzebne ćwiczenia i zatwierdź plan. W AA dwa wyprosty biodra muszą być różne; w US wybierz liczbę serii każdego ćwiczenia głównego.</p>{% endif %}
 {% if has_slots %}
   {% if slot_rows %}
   <p class="notice">Zestaw parametrów jest przypisany do pozycji. Ćwiczenia pomocnicze oznaczone AA zachowują parametry AA także w innej fazie planu. Wybrany wariant korzysta z własnej wartości 1RM.</p>
@@ -24,7 +25,7 @@
       {% if slot.notes %}<p class="muted small">{{ slot.notes }}</p>{% endif %}
     </section>
     {% endwith %}{% endfor %}
-    <div class="actions"><button type="submit" class="button primary">Dodaj wybrane ćwiczenia</button><a class="button secondary" href="{% url 'plan_detail' plan.pk %}">Anuluj</a></div>
+    <div class="actions"><button type="submit" class="button primary">{% if preset %}Zatwierdź wybrane ćwiczenia{% else %}Dodaj wybrane ćwiczenia{% endif %}</button><a class="button secondary" href="{% url 'plan_detail' plan.pk %}">Anuluj</a></div>
   </form>
   {% else %}<section class="card empty-state"><h2>Wszystkie pozycje tej fazy są już w planie</h2><p>Możesz zmienić ich warianty i parametry w widoku planu.</p><a class="button secondary" href="{% url 'plan_detail' plan.pk %}">Wróć do planu</a></section>{% endif %}
 {% else %}

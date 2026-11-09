@@ -1,6 +1,24 @@
 {% extends 'training/base.html' %}
 {% block title %}Plany{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">PRZYGOTUJ SIĘ DO KOLEJNEJ SESJI</p><h1>Twoje plany<span class="accent">.</span></h1><p class="lead">Zapisz zestaw ćwiczeń i wracaj do niego, kiedy potrzebujesz.</p></div><a class="button primary" href="{% url 'plan_create' %}">＋ Nowy plan</a></div>
+<div class="page-heading"><div><p class="eyebrow">PRZYGOTUJ SIĘ DO KOLEJNEJ SESJI</p><h1>Twoje plany<span class="accent">.</span></h1><p class="lead">Zapisz zestaw ćwiczeń i wracaj do niego, kiedy potrzebujesz.</p></div><div class="actions"><a class="button secondary" href="#friel-templates">Gotowe zestawy Friela ↓</a><a class="button primary" href="{% url 'plan_create' %}">＋ Nowy plan</a></div></div>
 <div class="cards-grid">{% for plan in plans %}<article class="card plan-card"><div class="card-top"><span class="plan-icon" aria-hidden="true">▤</span>{% if plan.phase.is_demo %}<span class="tag">DEMO</span>{% endif %}</div><p class="eyebrow">{{ plan.phase.name }}</p><h2>{{ plan.name }}</h2><p>{{ plan.items.count }} ćwiczeń</p><a class="button secondary full" href="{% url 'plan_detail' plan.pk %}">Otwórz plan <span aria-hidden="true">→</span></a></article>{% empty %}<div class="card empty-state wide"><span class="empty-icon" aria-hidden="true">▤</span><h2>Ułóż pierwszy plan</h2><p>Wybierz fazę, dodaj ćwiczenia i dostosuj ich parametry.</p><a class="button primary" href="{% url 'plan_create' %}">Utwórz plan</a></div>{% endfor %}</div>
+<section id="friel-templates" aria-labelledby="friel-templates-title">
+  <div class="section-heading"><div><p class="eyebrow">ĆWICZENIA I PARAMETRY SĄ JUŻ PRZYGOTOWANE</p><h2 id="friel-templates-title">Gotowe zestawy Friela</h2></div></div>
+  <p class="lead">Wybierz fazę, sprawdź jej ćwiczenia i przygotuj własny plan. Domyślne warianty możesz zmienić, a niepotrzebne pozycje odznaczyć przed zatwierdzeniem.</p>
+  <div class="cards-grid phase-template-grid">
+    {% for phase in phase_templates %}
+    <article class="card phase-template" id="phase-template-{{ phase.code }}">
+      <p class="eyebrow">{{ phase.code }} · {{ phase.slots.all|length }} pozycji ćwiczeń</p>
+      <h3>{{ phase.name }}</h3>
+      <ol class="phase-exercise-preview">
+        {% for slot in phase.slots.all %}<li><strong>{{ slot.default_exercise.name }}</strong><span>{% if slot.category != 'fixed' %}{{ slot.title }} · {% endif %}Parametry {{ slot.parameter_code }}</span></li>{% endfor %}
+      </ol>
+      {% if phase.code == 'US' %}<p class="muted small">W przygotowaniu planu wybierzesz 2 lub 3 serie ćwiczeń głównych. Środkowy ciężar przy 3 seriach pozostaje ustawieniem własnym.</p>{% endif %}
+      <a class="button primary full" href="{% url 'plan_create' %}?phase={{ phase.pk }}&amp;preset=1">Przygotuj plan {{ phase.code }} →</a>
+    </article>
+    {% empty %}<div class="card"><p>Gotowe zestawy nie są jeszcze dostępne w tej instalacji. Sprawdź, czy aplikacja i jej dane zostały zaktualizowane.</p></div>{% endfor %}
+  </div>
+  <p class="muted small">Dane z materiałów użytkownika do tabel 13.1–13.7. Pełna tabela celów SM 13.3 i przypis AA ze strony 236 pozostają do uzupełnienia.</p>
+</section>
 {% endblock %}

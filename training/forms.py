@@ -141,14 +141,15 @@ class AddExercisesForm(forms.Form):
 class AddPhaseSlotsForm(forms.Form):
     """A position is selected separately from its exercise variant."""
 
-    def __init__(self, *args, plan, **kwargs):
+    def __init__(self, *args, plan, preselect=False, **kwargs):
         super().__init__(*args, **kwargs)
         self.plan = plan
         self.slots = list(plan.phase.slots.exclude(
             pk__in=plan.items.exclude(slot=None).values_list('slot_id', flat=True)
         ).select_related('default_exercise').prefetch_related('allowed_exercises').order_by('position', 'pk'))
         for slot in self.slots:
-            self.fields[f'select_{slot.pk}'] = forms.BooleanField(required=False, label=slot.title)
+            self.fields[f'select_{slot.pk}'] = forms.BooleanField(
+                required=False, label=slot.title, initial=preselect)
             self.fields[f'exercise_{slot.pk}'] = forms.ModelChoiceField(
                 queryset=slot.allowed_exercises.all(), required=False,
                 label='Wariant ćwiczenia', initial=slot.default_exercise_id)
