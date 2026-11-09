@@ -1,9 +1,9 @@
-{% extends 'training/base.html' %}{% load l10n %}
+{% extends 'training/base.html' %}{% load l10n static %}
 {% block title %}{{ exercise.name }}{% endblock %}
 {% block content %}
 <a class="back-link" href="{% url 'exercise_list' %}">← Wszystkie ćwiczenia</a><div class="page-heading"><div><p class="eyebrow">{{ exercise.category }}</p><h1>{{ exercise.name }}<span class="accent">.</span></h1><p class="lead">{% if exercise.mode == 'time' %}Rejestrowanie czasu{% else %}Rejestrowanie powtórzeń{% endif %} · {{ exercise.load_notation }}</p></div></div>
 <section class="card technique"><p class="eyebrow">TECHNIKA</p><p>{{ exercise.description|linebreaksbr|default:'Brak danych o wykonaniu.' }}</p></section>
-<section class="card"><div class="section-heading"><div><p class="eyebrow">RZECZYWISTE WYNIKI / {{ active_profile.name }}</p><h2>{% if exercise.mode == 'time' %}Progres czasu{% else %}Maksymalny ciężar w sesji{% endif %}</h2></div></div>{% if plot_points %}<div class="chart-wrap">{% localize off %}<svg class="progress-chart" viewBox="0 0 640 230" role="img" aria-label="{% if exercise.mode == 'time' %}Wykres maksymalnego czasu{% else %}Wykres maksymalnego ciężaru{% endif %} w zakończonych treningach"><line x1="30" y1="190" x2="610" y2="190" class="chart-grid"/><line x1="30" y1="110" x2="610" y2="110" class="chart-grid"/><line x1="30" y1="30" x2="610" y2="30" class="chart-grid"/><polyline points="{{ chart_line }}" class="chart-line"/>{% for point in plot_points %}<circle cx="{{ point.x }}" cy="{{ point.y }}" r="5" class="chart-point"><title>{{ point.label }}: {{ point.detail }}</title></circle><text x="{{ point.x }}" y="215" class="chart-label" text-anchor="middle">{{ point.label }}</text>{% endfor %}</svg>{% endlocalize %}</div><p class="muted small">Każdy punkt oznacza jedną zakończoną sesję. Wyniki i kontekst znajdziesz poniżej.</p>{% else %}<p class="empty-copy">To ćwiczenie nie ma jeszcze zapisanej historii</p>{% endif %}</section>
+{% include 'training/exercise_progress.html' %}
 <div class="two-column">
   <section><h2>Wyniki w sesjach</h2>
   {% for entry in history %}<article class="card"><div class="section-heading"><h3><a href="{% url 'workout' entry.workout.pk %}">{{ entry.workout.training_date|date:'d.m.Y' }} →</a></h3><span class="muted">{{ entry.workout.plan_name }}</span></div><ul class="set-results">{% for set in entry.sets %}<li><span>Seria {{ set.number }}</span><strong>{% if entry.mode == 'time' %}{{ set.seconds }} s{% else %}{{ set.weight }} kg × {{ set.reps }} powt.{% endif %}</strong>{% if set.note %}<small>{{ set.note }}</small>{% endif %}</li>{% endfor %}</ul></article>{% empty %}<div class="card"><p class="empty-copy">To ćwiczenie nie ma jeszcze zapisanej historii</p></div>{% endfor %}
@@ -26,3 +26,5 @@
   </section>
 </div>
 {% endblock %}
+
+{% block scripts %}<script type="module" src="{% static 'training/progress.js' %}"></script>{% endblock %}

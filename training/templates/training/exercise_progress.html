@@ -1,0 +1,32 @@
+{% load l10n %}
+<section class="card exercise-progress" id="progress-chart" aria-labelledby="progress-heading">
+  <div class="section-heading"><div><p class="eyebrow">RZECZYWISTE WYNIKI / {{ active_profile.name }}</p><h2 id="progress-heading">{% if exercise.mode == 'time' %}Najdłuższy czas w kolejnych treningach{% else %}Maksymalny ciężar w czasie{% endif %}</h2></div></div>
+  {% if progress.points %}
+    <p class="muted small">{% if exercise.mode == 'time' %}Każdy punkt pokazuje najdłuższy zapisany czas w jednej zakończonej sesji.{% else %}Każdy punkt pokazuje maksymalny użyty ciężar w jednej zakończonej sesji oraz liczbę powtórzeń przy tym wyniku. To wyniki wykonanych serii, bez przeliczania na 1RM.{% endif %}</p>
+    <div class="progress-summary">
+      <div><span>Najwyższy wynik</span><strong>{{ progress.summary.best.detail }}</strong><small>{{ progress.summary.best.label }}</small></div>
+      <div><span>Ostatni trening</span><strong>{{ progress.summary.last.detail }}</strong><small>{{ progress.summary.last.label }}</small></div>
+      <div><span>Zmiana od pierwszego</span><strong>{{ progress.summary.change_label }}</strong><small>{{ progress.summary.count }} zakończonych sesji</small></div>
+    </div>
+    <div class="progress-plot">
+      {% localize off %}<svg class="exercise-progress-svg" viewBox="0 0 720 300" role="group" aria-labelledby="progress-svg-title progress-svg-desc">
+        <title id="progress-svg-title">{{ exercise.name }} — {% if exercise.mode == 'time' %}czas{% else %}maksymalny ciężar{% endif %} według dat treningów</title>
+        <desc id="progress-svg-desc">Oś pozioma: data treningu. Oś pionowa: {{ progress.unit }}. Wybierz punkt, aby sprawdzić wynik; wartości są także w tabeli pod wykresem.</desc>
+        <text x="70" y="18" class="progress-axis-unit">{{ progress.unit }}</text>
+        {% for tick in progress.y_ticks %}<line x1="70" y1="{{ tick.y }}" x2="690" y2="{{ tick.y }}" class="chart-grid"/><text x="58" y="{{ tick.y }}" dominant-baseline="middle" text-anchor="end" class="progress-axis-label">{{ tick.label }}</text>{% endfor %}
+        {% for tick in progress.x_ticks %}<line x1="{{ tick.x }}" y1="235" x2="{{ tick.x }}" y2="241" class="chart-grid"/><text x="{{ tick.x }}" y="262" text-anchor="{{ tick.anchor|default:'middle' }}" class="progress-axis-label">{{ tick.label }}</text>{% endfor %}
+        <text x="690" y="290" text-anchor="end" class="progress-axis-unit">Data treningu</text>
+        <polyline points="{{ progress.chart_line }}" class="chart-line"/>
+        {% for point in progress.points %}<a href="{{ point.url }}" class="progress-point" data-progress-index="{{ forloop.counter0 }}" aria-label="{{ point.datetime_label }}: {{ point.detail }}" tabindex="0"><circle cx="{{ point.x }}" cy="{{ point.y }}" r="13" class="progress-hit-area"/><circle cx="{{ point.x }}" cy="{{ point.y }}" r="5" class="chart-point"/><title>{{ point.datetime_label }}: {{ point.detail }}</title></a>{% endfor %}
+      </svg>{% endlocalize %}
+    </div>
+    <p class="muted small">Dotknij lub kliknij punkt, aby zobaczyć wynik. Z klawiatury: Tab i strzałki. Możesz też użyć tabeli wyników poniżej.</p>
+    <div class="progress-selection" aria-live="polite" aria-atomic="true">
+      <div><span id="progress-selected-date">{{ progress.summary.last.datetime_label }}</span><strong id="progress-selected-result">{{ progress.summary.last.detail }}</strong></div>
+      <a class="button secondary" id="progress-selected-link" href="{{ progress.summary.last.url }}">Zobacz trening →</a>
+    </div>
+    <div class="actions progress-controls" id="progress-controls" hidden><button type="button" class="button secondary" id="progress-previous">← Poprzedni wynik</button><button type="button" class="button secondary" id="progress-next">Następny wynik →</button></div>
+    <details class="progress-results"><summary>Wyniki użyte na wykresie ({{ progress.summary.count }})</summary><div class="table-scroll"><table><thead><tr><th>Data treningu</th><th>{% if exercise.mode == 'time' %}Najdłuższy czas{% else %}Maksymalny ciężar{% endif %}</th>{% if exercise.mode != 'time' %}<th>Powtórzenia</th>{% endif %}<th>Historia</th></tr></thead><tbody>{% for point in progress.points %}<tr><td>{{ point.label }}</td><td>{{ point.value_label }} {{ progress.unit }}</td>{% if exercise.mode != 'time' %}<td>{{ point.reps|default_if_none:'Brak danych' }}</td>{% endif %}<td><a href="{{ point.url }}">Trening →</a></td></tr>{% endfor %}</tbody></table></div></details>
+    {{ progress.points|json_script:'exercise-progress-data' }}
+  {% else %}<p class="empty-copy">To ćwiczenie nie ma jeszcze zapisanej historii</p><p class="muted small">Wykres pojawi się po zakończeniu treningu i zapisaniu jego wyników na serwerze.</p>{% endif %}
+</section>

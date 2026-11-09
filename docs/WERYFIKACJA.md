@@ -1,5 +1,11 @@
 # Weryfikacja aplikacji
 
+## Wykres historii ćwiczenia — 9 listopada 2026
+
+Pełny zestaw **103 testów Django przeszedł na Pythonie 3.12 i 3.13**. Dwanaście nowych testów sprawdza maksimum jednej sesji, połączenie kilku pozycji tego samego ćwiczenia, rozdzielenie profili, pominięcie usuniętych serii i aktywnych treningów, historyczny sposób rejestrowania, porządek i odstępy dat, pojedynczy punkt, rzeczywisty wynik 0 oraz czas zamiast ciężaru. Kontrola migracji nie wykazała zmian schematu.
+
+`node scripts/browser_progress.cjs` przeszedł na komputerze 1440 × 1000 i telefonie emulowanym 390 × 844. Sprawdzono rzeczywiste wartości punktów i powtórzenia, osie kg/s, proporcje odstępów dat, wybór kliknięciem, przyciski i klawiaturę, przejście do konkretnego treningu i powrót do wykresu, brak danych i brak poziomego przepełnienia. Do sprawdzenia izolacji przygotowano serię innego profilu, serię usuniętą i aktywną sesję z większym ciężarem — nie pojawiły się na wykresie. Skrypt usunął własne profile i ćwiczenia QA po zakończeniu.
+
 ## Widoczność gotowych zestawów — 9 listopada 2026
 
 Po dodaniu katalogu „Gotowe zestawy Friela” pełny zestaw **91 testów Django przeszedł na Pythonie 3.12 i 3.13**. Jedenaście nowych testów obejmuje pięć kart faz, wstępne wypełnienie formularza, zaznaczone domyślne pozycje, różne warianty wyprostu biodra AA, świadomy wybór 2/3 serii US, odznaczanie pozycji i brak zmian danych przy samym przeglądaniu.

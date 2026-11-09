@@ -54,6 +54,14 @@ Obliczenia rozróżniają procent 1RM i procent masy ciała. Wykorzystują najno
 
 Rozpoczęta sesja zachowuje kopię parametrów, masy, 1RM i wyliczeń. Zmiana planu lub późniejszy pomiar nie przelicza historii. Zakończona sesja nie przyjmuje nowych serii przez endpoint aktywnego treningu. W tej wersji nie ma odrębnego narzędzia korekty zakończonych treningów.
 
+### Wykres maksymalnego ciężaru w czasie
+
+Otwórz **Ćwiczenia → wybrane ćwiczenie → Maksymalny ciężar w czasie**. Z historii dostępny jest też przycisk **Wykresy ćwiczeń**, a w szczegółach zakończonego treningu link **Historia i wykres tego ćwiczenia**.
+
+Każdy punkt przedstawia maksymalny użyty ciężar z jednej zakończonej sesji aktywnego profilu, z liczbą powtórzeń przy tym ciężarze. Gdy ćwiczenie wystąpiło kilka razy w jednej sesji, wykres łączy te pozycje w jeden wynik maksymalny. Oś pozioma uwzględnia rzeczywiste odstępy między datami treningów; pionowa ma skalę w kg. Kliknij punkt, użyj przycisków poprzedniego/następnego wyniku lub klawiatury, aby sprawdzić datę, ciężar, powtórzenia i otworzyć trening. Wartości są też dostępne w tabeli pod wykresem.
+
+Dla ćwiczeń na czas wykres przedstawia najdłuższy czas w sekundach. Usunięte serie i niezakończone sesje są pomijane. Wyniki zapisane offline pojawią się po synchronizacji z serwerem. Wykres nie szacuje ani nie zmienia 1RM.
+
 ## Fazy z materiałów użytkownika i DEMO
 
 Migracje automatycznie dodają pięć faz: **AA — adaptacja anatomiczna**, **SM — siła maksymalna**, **WM — wytrzymałość mocy**, **WS — wytrzymałość siłowa**, **US — utrzymanie siły**. Dane odwzorowują dostarczony przez użytkownika opis tabel 13.1–13.7 z „Biblii treningu kolarza górskiego”. Nie dodano fazy MT. Materiał źródłowy i ograniczenia zapisano w [dokumentacji danych](docs/FRIEL_DANE.md).
@@ -163,6 +171,7 @@ npm run test:browser
 node scripts/browser_sync_edges.cjs
 node scripts/browser_friel.cjs
 node scripts/browser_phase_templates.cjs
+node scripts/browser_progress.cjs
 ```
 
 Skrypty sprawdzają aplikację w Chromium, w tym warianty rozmiaru ekranu i zachowanie kolejki offline. Test `test:browser` tworzy nowe sesje treningowe w danych DEMO i zapisuje w nich serie. Testy `browser_sync_edges.cjs` i `browser_friel.cjs` tworzą oddzielne profile QA i usuwają je po zakończeniu. Pierwszy sprawdza utratę potwierdzenia oraz edycję podczas synchronizacji; drugi zalecenia kolejnych serii US, brak automatycznego ciężaru z celu SM i zachowanie parametrów AA. Używaj developerskiej bazy, a nie jedynej kopii własnych wyników. Wyniki konkretnego uruchomienia podaje raport weryfikacji.

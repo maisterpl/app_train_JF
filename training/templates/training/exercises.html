@@ -1,6 +1,6 @@
 {% extends 'training/base.html' %}
 {% block title %}Ćwiczenia{% endblock %}
 {% block content %}
-<div class="page-heading"><div><p class="eyebrow">TECHNIKA I WYNIKI</p><h1>Baza ćwiczeń<span class="accent">.</span></h1><p class="lead">Sprawdź wykonanie, historię i ręcznie zapisane wartości 1RM.</p></div></div>
+<div class="page-heading"><div><p class="eyebrow">TECHNIKA I WYNIKI</p><h1>Baza ćwiczeń<span class="accent">.</span></h1><p class="lead">Wybierz ćwiczenie, aby zobaczyć historię, wykres maksymalnego ciężaru i zapisane wartości 1RM.</p></div></div>
 <div class="cards-grid">{% for exercise in exercises %}<a class="card exercise-card" href="{% url 'exercise_detail' exercise.pk %}"><p class="eyebrow">{{ exercise.category|default:'Ćwiczenie siłowe' }}</p><h2>{{ exercise.name }}</h2><p>{{ exercise.description|truncatewords:20 }}</p><div class="card-bottom"><span class="tag">{% if exercise.mode == 'time' %}Czas{% else %}Powtórzenia{% endif %}</span><span aria-hidden="true">→</span></div></a>{% empty %}<div class="card empty-state wide"><h2>Baza czeka na ćwiczenia</h2><p>Ćwiczenia i zweryfikowane parametry dodaje administrator.</p></div>{% endfor %}</div>
 {% endblock %}

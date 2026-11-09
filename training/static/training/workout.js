@@ -6,6 +6,11 @@ let localSerial = Promise.resolve();
 const syncJobs = new Map();
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const clone = value => JSON.parse(JSON.stringify(value));
+function exerciseProgressLink(exercise) {
+  const id = Number(exercise.snapshot?.exercise_id);
+  return Number.isSafeInteger(id) && id > 0
+    ? `<p><a class="button button-secondary" href="/exercises/${id}/#progress-chart">Historia i wykres tego ćwiczenia →</a></p>` : '';
+}
 export function uuid() {
   if (crypto.randomUUID) return crypto.randomUUID();
   // Basic online use over a private LAN still works without randomUUID(),
@@ -419,7 +424,7 @@ class WorkoutApp {
 
   renderSummary() {
     const workout = this.workout;
-    this.root.innerHTML = `<div class="card"><p class="eyebrow">Trening zakończony</p><h1>${escapeHTML(workout.plan_name)}</h1><p>Profil: ${escapeHTML(workout.profile_name || `#${workout.profile_id}`)}</p><p>${escapeHTML(workout.phase_name)} · ${escapeHTML(duration(workout.started_at, workout.finished_at))}</p><p>Wyniki zapisane. Oczekujące zmiany zostaną wysłane po odzyskaniu połączenia.</p><div id="workout-message" class="notice" role="status" ${this.error ? '' : 'hidden'}>${escapeHTML(this.error)}</div></div>${workout.exercises.map(ex => `<section class="card"><h2>${escapeHTML(ex.snapshot.name)}</h2>${ex.skipped ? '<p>Pominięte</p>' : ''}${ex.sets.length ? `<ol>${ex.sets.map(set => `<li>Seria ${set.number}: <strong>${escapeHTML(resultLabel(set, ex.snapshot.mode))}</strong>${set.note ? ` — ${escapeHTML(set.note)}` : ''}</li>`).join('')}</ol>` : '<p>Brak wykonanych serii</p>'}</section>`).join('')}<div class="actions"><a class="button" href="/workouts/">Historia treningów</a><a class="button button-secondary" href="/">Wróć do Start</a></div>`;
+    this.root.innerHTML = `<div class="card"><p class="eyebrow">Trening zakończony</p><h1>${escapeHTML(workout.plan_name)}</h1><p>Profil: ${escapeHTML(workout.profile_name || `#${workout.profile_id}`)}</p><p>${escapeHTML(workout.phase_name)} · ${escapeHTML(duration(workout.started_at, workout.finished_at))}</p><p>Wyniki zapisane. Oczekujące zmiany zostaną wysłane po odzyskaniu połączenia.</p><div id="workout-message" class="notice" role="status" ${this.error ? '' : 'hidden'}>${escapeHTML(this.error)}</div></div>${workout.exercises.map(ex => `<section class="card"><h2>${escapeHTML(ex.snapshot.name)}</h2>${exerciseProgressLink(ex)}${ex.skipped ? '<p>Pominięte</p>' : ''}${ex.sets.length ? `<ol>${ex.sets.map(set => `<li>Seria ${set.number}: <strong>${escapeHTML(resultLabel(set, ex.snapshot.mode))}</strong>${set.note ? ` — ${escapeHTML(set.note)}` : ''}</li>`).join('')}</ol>` : '<p>Brak wykonanych serii</p>'}</section>`).join('')}<div class="actions"><a class="button" href="/workouts/">Historia treningów</a><a class="button button-secondary" href="/">Wróć do Start</a></div>`;
   }
 
   input(event) {

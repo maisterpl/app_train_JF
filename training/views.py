@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.core import serializers
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -17,6 +18,7 @@ from .forms import (AddExercisesForm, AddPhaseSlotsForm, BodyWeightForm, Estimat
 from .models import (BodyWeight, Exercise, OneRepMax, Phase, PhaseSlot, Plan, PlanItem, Profile, StrengthGoal,
                      Recommendation, Workout, WorkoutExercise, WorkoutSet)
 from .services import calculate_goal, calculate_load, estimate_rm, serialize_workout, start_workout
+from .progress import exercise_progress
 
 
 def get_active_profile(request):
@@ -343,39 +345,23 @@ def exercise_detail(request, pk):
                 messages.success(request, 'Świadomie zapisano szacowaną wartość 1RM. Zwykłe serie treningowe nie zmieniają 1RM.')
                 return redirect('exercise_detail', pk=exercise.pk)
     entries = WorkoutExercise.objects.filter(exercise=exercise, workout__profile=profile,
-        workout__status='completed').select_related('workout').order_by('workout__training_date', 'workout__started_at')
+        workout__status='completed').select_related('workout').prefetch_related(Prefetch(
+            'sets', queryset=WorkoutSet.objects.filter(deleted=False).order_by('number'), to_attr='history_sets',
+        )).order_by('workout__training_date', 'workout__started_at')
     records = []
-    points = []
     for entry in entries:
-        sets = list(WorkoutSet.objects.filter(workout_exercise=entry, deleted=False).order_by('number'))
+        sets = entry.history_sets
         if not sets:
             continue
         record_mode = entry.snapshot.get('mode', exercise.mode)
         records.append({'workout': entry.workout, 'sets': sets, 'mode': record_mode})
-        if record_mode != exercise.mode:
-            continue
-        if record_mode == 'time':
-            best = max(sets, key=lambda x: x.seconds or 0)
-            value = best.seconds or 0
-            detail = f'{value} s'
-        else:
-            best = max(sets, key=lambda x: (x.weight or 0, x.reps or 0))
-            value = float(best.weight or 0)
-            detail = f'{best.weight} kg × {best.reps} powt.'
-        points.append({'value': float(value), 'detail': detail, 'label': entry.workout.training_date.strftime('%d.%m.%Y')})
-    maximum = max([p['value'] for p in points], default=1) or 1
-    for index, point in enumerate(points):
-        point.update(x=40 + (index / max(len(points) - 1, 1)) * 520,
-                     y=170 - point['value'] / maximum * 130)
     return _render(request, 'exercise_detail', {'exercise': exercise, 'form': form,
         'calculator_form': calculator_form, 'estimate': estimate,
         'estimate_weight': calculator_form.cleaned_data.get('weight') if estimate is not None else None,
         'estimate_reps': calculator_form.cleaned_data.get('reps') if estimate is not None else None,
         'estimate_coefficient': ({4: '0,900', 5: '0,875', 6: '0,850', 7: '0,825', 8: '0,800', 9: '0,775', 10: '0,750'}.get(calculator_form.cleaned_data.get('reps')) if estimate is not None else None),
         'rm_history': OneRepMax.objects.filter(profile=profile, exercise=exercise).order_by('-date', '-pk'),
-        'history': list(reversed(records)), 'plot_points': points,
-        'chart_line': ' '.join(f"{p['x']:.1f},{p['y']:.1f}" for p in points),
-        'max_value': maximum})
+        'history': list(reversed(records)), 'progress': exercise_progress(profile, exercise)})
 
 
 @profile_required
