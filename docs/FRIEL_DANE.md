@@ -4,7 +4,7 @@
 
 ## Dostępne dane
 
-Migracje dodają fazy AA — adaptacja anatomiczna, SM — siła maksymalna, WM — wytrzymałość mocy, WS — wytrzymałość siłowa i US — utrzymanie siły. Fazy MT nie dodano. Zestaw DEMO pozostaje oddzielny od tych danych.
+Publiczny katalog lokalnej PWA zawiera fazy AA — adaptacja anatomiczna, SM — siła maksymalna, WM — wytrzymałość mocy, WS — wytrzymałość siłowa i US — utrzymanie siły. Jest generowany z tej samej transkrypcji co migracje poprzedniej wersji Django. Fazy MT nie dodano. Zestaw DEMO pozostaje oddzielny od tych danych.
 
 Każda faza zachowuje liczbę sesji i częstotliwość podane w materiale. Nie przeliczono ich na sztywną liczbę tygodni i nie dodano automatycznej zmiany fazy. Kolejność pozycji jest odrębna od wariantów ćwiczeń: wyprost biodra może oznaczać przysiad, wypychanie nogami albo step. „Osobiste słabości” są kategorią wyboru, nie fikcyjnym ćwiczeniem. W AA dwa wybrane ćwiczenia wyprostu biodra muszą być różne.
 
@@ -35,4 +35,4 @@ Oddzielny kalkulator korzysta ze współczynników tabeli 13.7 dla 4–10 powtó
 | Opisy techniki i konwencje zapisu obciążenia, których nie ma w transkrypcji | Nie dopisano niepotwierdzonych instrukcji wykonania ani interpretacji ciężaru. |
 | Wydanie/rok książki i lokalizacja kompletnych tabel | Uzupełnią precyzyjną identyfikację źródła. |
 
-Administrator może uzupełniać fazy, uporządkowane pozycje, dozwolone warianty i cele w panelu Django. Nowe dane trzeba przypisywać do właściwego ćwiczenia i źródła. Istniejące rozpoczęte sesje zachowują kopie parametrów i nie są przeliczane po zmianie danych programu.
+W lokalnej PWA katalog aktualizuje się w pliku źródłowym `training/friel_data.py`, następnie poleceniami `python scripts/build_local_catalog.py` i `python scripts/build_local_release.py`. Nie ma wspólnego panelu administratora. Nowe dane trzeba przypisywać do właściwego ćwiczenia i źródła. Rozpoczęte sesje zachowują kopie parametrów i nie są przeliczane po zmianie programu. Istniejąca lokalna baza katalogu nie jest automatycznie nadpisywana nowym plikiem katalogu; aktualizacja danych źródłowych wymaga przygotowania osobnej migracji, by zachować własne plany i historię. Dawny panel Django pozostaje dostępny wyłącznie w archiwalnej wersji serwerowej.

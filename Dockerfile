@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1
+# Archiwalny serwer Django, zachowany do migracji danych.
+# Aktualna lokalna PWA: publikuj wyłącznie web/ (bez kontenera).
 FROM python:3.13-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PORT=8000
 WORKDIR /app
