@@ -1,5 +1,15 @@
 # Weryfikacja aplikacji
 
+## Konta i przygotowanie serwera — 12 listopada 2026
+
+Wykonano migracje django-allauth oraz `0006_profile_owner`. Dotychczasowe profile pozostają zachowane i nieprzypisane; zwykłe konta nie uzyskują do nich dostępu. Pełny zestaw **115 testów Django przeszedł na Pythonie 3.12 i 3.13**. Nowe testy obejmują rejestrację, potwierdzenie e-maila przez POST, reset hasła, brak dostępu bez weryfikacji, izolację HTML/API/eksportów, wybór profilu administratora, przypisanie starszego profilu i konfigurację przekierowania Google OAuth z PKCE.
+
+`browser_accounts.cjs` przeszedł dla komputera 1440 × 1000 i telefonu emulowanego 390 × 844: rzeczywisty formularz logowania, izolacja dwóch kont, zapis i zakończenie offline, odświeżenie, synchronizacja, odmowa czyszczenia niepotwierdzonej kolejki, wylogowanie, pusty magazyn drugiego konta oraz wykres osoby dostępny administratorowi. Ponownie przeszły skrypty gotowych faz, progresu, sześciu przypadków Friela, czterech przypadków kolejki i pełny trening desktop/mobile. Testy tworzą i usuwają własne konta QA.
+
+Zbudowano obraz Docker, uruchomiono go jako UID 1000, sprawdzono migracje i `/health/`. SQLite na osobnym woluminie zachowała dane po restarcie kontenera; polecenie tworzenia kopii zakończyło się poprawnie. Niezależny test Gunicorn/WhiteNoise przy `DEBUG=0` sprawdził blokadę anonimowego dostępu, przekierowanie HTTP na HTTPS, cookies Secure, pliki CSS oraz integralność kopii SQLite. TLS na zewnątrz był w tym teście symulowany nagłówkiem zaufanego lokalnego proxy; nie jest to test rzeczywistego certyfikatu publicznej domeny. `check --deploy` pozostawia zalecenia W005 i W021, ponieważ świadomie nie włączono HSTS dla wszystkich subdomen ani preload przed wyborem domeny.
+
+**Nie uruchomiono jeszcze publicznego hostingu.** `render.yaml` jest przygotowaną konfiguracją płatnego serwera i trwałego dysku, nie dowodem wdrożenia ani zakupu. Testy e-mail używają pamięci testowej, a OAuth — konfiguracji testowej bez prawdziwego konta Google. Nie zweryfikowano rzeczywistej dostarczalności SMTP, logowania Google na żywo ani fizycznego telefonu/Windows. Potrzebne są konto hostingowe, zgoda na koszty, konfiguracja poczty oraz klient OAuth. Szczegóły w `WDROZENIE.md`.
+
 ## Wykres historii ćwiczenia — 9 listopada 2026
 
 Pełny zestaw **103 testów Django przeszedł na Pythonie 3.12 i 3.13**. Dwanaście nowych testów sprawdza maksimum jednej sesji, połączenie kilku pozycji tego samego ćwiczenia, rozdzielenie profili, pominięcie usuniętych serii i aktywnych treningów, historyczny sposób rejestrowania, porządek i odstępy dat, pojedynczy punkt, rzeczywisty wynik 0 oraz czas zamiast ciężaru. Kontrola migracji nie wykazała zmian schematu.

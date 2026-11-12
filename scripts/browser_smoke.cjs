@@ -1,3 +1,4 @@
+const {authenticateBrowser}=require('./browser_test_account.cjs');
 /* Requires a running DEMO instance, and npm install. Uses new DEMO sessions. */
 const {chromium} = require('playwright');
 const assert = require('node:assert/strict');
@@ -28,6 +29,7 @@ async function noOverflow(page) {
   try {
     for (const mobile of [false, true]) {
       const context = await browser.newContext({viewport:mobile ? {width:390,height:844} : {width:1440,height:1000}, isMobile:mobile, hasTouch:mobile});
+    await authenticateBrowser(context,null);
       const page = await context.newPage();
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));

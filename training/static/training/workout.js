@@ -1,7 +1,34 @@
 /* IndexedDB is the durable source for a prepared workout and its outbox.
  * An operation and its optimistic result are always committed together. */
-const DATABASE = 'sila-kolarza-v1';
+const serverAccount = document.body.hasAttribute('data-account-id');
+const presentedAccount = document.body.dataset.accountId;
+if (serverAccount) {
+  if (/^\d+$/.test(presentedAccount || '')) localStorage.setItem('active-account-id', presentedAccount);
+  else localStorage.removeItem('active-account-id');
+}
+const ACCOUNT_ID = serverAccount ? presentedAccount : localStorage.getItem('active-account-id');
+const DATABASE = `sila-kolarza-account-${ACCOUNT_ID || 'signed-out'}`;
+window.addEventListener('storage', event => {
+  if (ACCOUNT_ID && (event.key === 'active-account-id' || event.key === null) && localStorage.getItem('active-account-id') !== String(ACCOUNT_ID)) {
+    offlineClosing = true;
+    if (databasePromise) databasePromise.then(db => db.close()).catch(() => {});
+    const panel = document.createElement('main');
+    const title = document.createElement('h1');title.textContent = 'Konto zostało zmienione lub wylogowane.';
+    const note = document.createElement('p');note.textContent = 'Otwórz właściwe konto, aby kontynuować i zsynchronizować swoje treningi.';
+    const link = document.createElement('a');link.href='/accounts/login/';link.textContent='Przejdź do logowania';
+    panel.append(title,note,link);document.body.replaceChildren(panel);
+  }
+});
+export const lastWorkoutKey = `last-workout-id:${ACCOUNT_ID || 'signed-out'}`;
 let databasePromise;
+let offlineClosing = false;
+// Mobile back/forward caches retain documents. Close their IndexedDB handles
+// before freezing, so an old document cannot block a later logout/delete.
+window.addEventListener('pagehide', () => {
+  const pending = databasePromise;
+  databasePromise = undefined;
+  if (pending) pending.then(db => db.close()).catch(() => {});
+});
 let localSerial = Promise.resolve();
 const syncJobs = new Map();
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -23,6 +50,8 @@ export function uuid() {
 }
 
 function database() {
+  if (offlineClosing) return Promise.reject(new Error('Trwa wylogowywanie.'));
+  if (!ACCOUNT_ID) return Promise.reject(new Error('Zaloguj się, aby korzystać z danych treningu.'));
   if (!databasePromise) databasePromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DATABASE, 1);
     request.onupgradeneeded = () => {
@@ -31,7 +60,7 @@ function database() {
       const operations = db.createObjectStore('operations', {keyPath: 'id'});
       operations.createIndex('workout_id', 'workout_id');
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => { request.result.onversionchange = () => request.result.close(); resolve(request.result); };
     request.onerror = () => reject(request.error);
   });
   return databasePromise;
@@ -149,7 +178,9 @@ export function queueOperation(workoutId, operation, extra = {}) {
 export async function csrfToken() {
   const response = await fetch('/api/csrf/', {credentials: 'same-origin', cache: 'no-store'});
   if (!response.ok) throw new Error('Nie udało się odświeżyć zabezpieczenia CSRF.');
-  return (await response.json()).csrfToken;
+  const data = await response.json();
+  if (String(data.user_id) !== String(ACCOUNT_ID)) throw new Error('Zmieniono konto. Wróć do właściciela treningu, aby zsynchronizować dane.');
+  return data.csrfToken;
 }
 
 export async function jsonRequest(url, body) {
@@ -193,6 +224,7 @@ export function syncWorkout(id) {
 }
 
 export async function syncAll() {
+  if (!ACCOUNT_ID || offlineClosing) return [];
   const ids = [...new Set((await pendingOperations()).map(row => row.workout_id))];
   return Promise.allSettled(ids.map(id => syncWorkout(id)));
 }
@@ -229,7 +261,7 @@ class WorkoutApp {
     this.deferredRender = false;
     this.pointerDown = false;
     this.error = '';
-    this.id = root.dataset.workoutId || location.pathname.match(/\/workouts\/([0-9a-f-]{36})\//i)?.[1] || localStorage.getItem('last-workout-id');
+    this.id = root.dataset.workoutId || location.pathname.match(/\/workouts\/([0-9a-f-]{36})\//i)?.[1] || localStorage.getItem(lastWorkoutKey);
     this.root.addEventListener('click', event => this.click(event));
     this.root.addEventListener('submit', event => this.submit(event));
     this.root.addEventListener('input', event => this.input(event));
@@ -268,7 +300,7 @@ class WorkoutApp {
         }
       }
       if (!this.workout) throw new Error('Ten trening nie jest zapisany na tym urządzeniu. Otwórz go najpierw online i pobierz do pracy offline.');
-      localStorage.setItem('last-workout-id', this.id);
+      localStorage.setItem(lastWorkoutKey, this.id);
     } catch (error) {
       if (this.workout) this.message(`Tryb lokalny: ${error.message}`);
       else this.root.innerHTML = `<div class="card"><h1>Trening offline</h1><p role="alert">${escapeHTML(error.message)}</p><a class="button" href="/">Wróć do Start</a></div>`;
@@ -530,3 +562,30 @@ class WorkoutApp {
 
 const workoutRoot = document.getElementById('workout-app');
 if (workoutRoot) new WorkoutApp(workoutRoot).init();
+
+export async function clearCurrentOfflineData() {
+  // Finish local writes first, then recheck the outbox in the same transaction
+  // that clears archived workouts. Never discard an unacknowledged operation.
+  await localSerial.catch(() => {});
+  const db = await database();
+  offlineClosing = true;
+  const tx = db.transaction(['workouts', 'operations'], 'readwrite');
+  const done = transactionDone(tx);
+  try {
+    if (await requestValue(tx.objectStore('operations').count())) {
+      tx.abort();
+      await done.catch(() => {});
+      throw new Error('Najpierw zsynchronizuj oczekujące zmiany treningu.');
+    }
+    tx.objectStore('workouts').clear();
+    await done;
+  } catch (error) {
+    await done.catch(() => {});
+    offlineClosing = false;
+    throw error;
+  }
+  db.close();
+  databasePromise = undefined;
+  localStorage.removeItem(lastWorkoutKey);
+  localStorage.removeItem('active-account-id');
+}

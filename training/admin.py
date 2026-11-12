@@ -30,8 +30,9 @@ class OneRepMaxInline(admin.TabularInline):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ("name", "rounding_step")
-    search_fields = ("name",)
+    list_display = ("name", "owner", "rounding_step")
+    search_fields = ("name", "owner__email", "owner__username")
+    list_filter = ("owner",)
     inlines = (BodyWeightInline, OneRepMaxInline)
 
 

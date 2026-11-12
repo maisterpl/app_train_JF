@@ -1,7 +1,5 @@
-from .models import Profile
+from django.conf import settings
+from .access import active_for
 
 def active_profile(request):
-    profile = Profile.objects.filter(pk=request.session.get('active_profile_id')).first()
-    if profile is None:
-        profile = Profile.objects.order_by('id').first()
-    return {'active_profile': profile}
+    return {'active_profile': active_for(request), 'google_login_enabled': settings.GOOGLE_LOGIN_ENABLED}

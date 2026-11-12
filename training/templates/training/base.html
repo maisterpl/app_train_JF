@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="{% static 'training/style.css' %}">
   {% block head %}{% endblock %}
 </head>
-<body>
+<body class="{% if '/accounts/' in request.path %}account-page{% endif %}" data-account-id="{{ request.user.pk|default_if_none:'' }}">
   <a class="skip-link" href="#main">Przejdź do treści</a>
   <aside class="sidebar">
     <a class="brand" href="{% url 'dashboard' %}" aria-label="Siła na trasę — Start"><span class="brand-symbol">→</span><span>SIŁA<br><small>NA TRASĘ</small></span></a>
@@ -33,7 +33,7 @@
       <div class="connection"><span class="status-dot" aria-hidden="true"></span><span id="connection-status" role="status">Sprawdzanie połączenia</span><span id="pending-count" aria-live="polite"></span></div>
       <a class="profile-pill" href="{% url 'profiles' %}"><span class="avatar" aria-hidden="true">{% if active_profile %}{{ active_profile.name|first|upper }}{% else %}?{% endif %}</span><span>{% if active_profile %}{{ active_profile.name }}{% else %}Wybierz profil{% endif %}</span></a>
     </header>
-    <main id="main" tabindex="-1">
+    <div class="account-bar">{% if request.user.is_authenticated %}<span>{{ request.user.email|default:request.user.username }}{% if request.user.is_superuser %} · Administrator{% endif %}</span><a href="/accounts/email/">Adres e-mail</a><a href="/accounts/password/change/">Hasło</a><form method="post" action="/accounts/logout/" id="account-logout">{% csrf_token %}<button type="submit" class="button secondary">Wyloguj</button></form>{% else %}<a href="/accounts/login/">Zaloguj się</a> · <a href="/accounts/signup/">Utwórz konto</a>{% endif %}</div><main id="main" tabindex="-1">
       {% if messages %}<div class="messages" aria-live="polite">{% for message in messages %}<p class="message {{ message.tags }}">{{ message }}</p>{% endfor %}</div>{% endif %}
       {% block content %}{% endblock %}
     </main>

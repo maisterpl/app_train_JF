@@ -21,13 +21,11 @@ from .services import calculate_goal, calculate_load, estimate_rm, serialize_wor
 from .progress import exercise_progress
 
 
+from .access import active_for, visible_profiles
+
+
 def get_active_profile(request):
-    profile = Profile.objects.filter(pk=request.session.get('active_profile_id')).first()
-    if profile is None:
-        profile = Profile.objects.order_by('pk').first()
-        if profile:
-            request.session['active_profile_id'] = profile.pk
-    return profile
+    return active_for(request)
 
 
 def profile_required(view):
@@ -63,15 +61,17 @@ def dashboard(request):
 def profiles(request):
     form = ProfileForm(request.POST if request.method == 'POST' else None)
     if request.method == 'POST' and form.is_valid():
-        p = form.save()
+        p = form.save(commit=False)
+        p.owner = request.user
+        p.save()
         request.session['active_profile_id'] = p.pk
         messages.success(request, 'Profil utworzony. Dodaj pomiar masy ciała.')
         return redirect('profile_detail', profile_id=p.pk)
-    return _render(request, 'profiles', {'profiles': Profile.objects.all(), 'form': form})
+    return _render(request, 'profiles', {'profiles': visible_profiles(request.user).select_related('owner'), 'form': form})
 
 
 def profile_edit(request, profile_id):
-    p = get_object_or_404(Profile, pk=profile_id)
+    p = get_object_or_404(visible_profiles(request.user), pk=profile_id)
     form = ProfileForm(request.POST if request.method == 'POST' else None, instance=p)
     if request.method == 'POST' and form.is_valid():
         form.save()
@@ -82,13 +82,13 @@ def profile_edit(request, profile_id):
 
 @require_POST
 def profile_switch(request, profile_id):
-    p = get_object_or_404(Profile, pk=profile_id)
+    p = get_object_or_404(visible_profiles(request.user), pk=profile_id)
     request.session['active_profile_id'] = p.pk
     return redirect('dashboard')
 
 
 def profile_detail(request, profile_id):
-    p = get_object_or_404(Profile, pk=profile_id)
+    p = get_object_or_404(visible_profiles(request.user), pk=profile_id)
     form = BodyWeightForm(request.POST if request.method == 'POST' else None)
     if request.method == 'POST':
         form.instance.profile = p

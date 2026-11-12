@@ -3,6 +3,8 @@ from django.urls import include, path
 from training import api
 
 urlpatterns = [
+    path('accounts/', include('allauth.urls')),
+    path('health/', api.health, name='health'),
     path('admin/', admin.site.urls),
     path('api/csrf/', api.csrf, name='api_csrf'),
     path('api/plans/<int:pk>/prepare/', api.prepare, name='api_prepare'),

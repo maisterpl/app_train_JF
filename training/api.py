@@ -18,13 +18,11 @@ from .models import Plan, Profile, Workout
 from .services import apply_operations, serialize_workout, start_workout
 
 
+from .access import active_for
+
+
 def profile_for(request):
-    profile = Profile.objects.filter(pk=request.session.get('active_profile_id')).first()
-    if profile is None:
-        profile = Profile.objects.order_by('id').first()
-    if profile is not None:
-        request.session['active_profile_id'] = profile.pk
-    return profile
+    return active_for(request)
 
 
 def payload(request):
@@ -47,7 +45,7 @@ def error(exc, status=400):
 @never_cache
 @require_GET
 def csrf(request):
-    return JsonResponse({'csrfToken': get_token(request)})
+    return JsonResponse({'csrfToken': get_token(request), 'user_id': request.user.pk})
 
 
 @never_cache
@@ -121,3 +119,12 @@ def service_worker(request):
 @require_GET
 def manifest(request):
     return FileResponse((settings.BASE_DIR / 'training/static/training/manifest.webmanifest').open('rb'), content_type='application/manifest+json')
+
+
+@require_GET
+def health(request):
+    from django.db import connection
+    with connection.cursor() as cursor:
+        cursor.execute('SELECT 1')
+        cursor.fetchone()
+    return JsonResponse({'status': 'ok'})

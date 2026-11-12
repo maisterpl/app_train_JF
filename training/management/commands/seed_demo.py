@@ -24,6 +24,7 @@ class Command(BaseCommand):
         today = timezone.localdate()
         profile, _ = Profile.objects.get_or_create(
             name="Kolarz DEMO",
+            owner=None,
             defaults={
                 "notes": "Profil demonstracyjny. Wszystkie liczby są przykładowe.",
                 "rounding_step": Decimal("2.5"),

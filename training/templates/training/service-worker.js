@@ -3,7 +3,7 @@ const CACHE = 'sila-kolarza-shell-{{ asset_version }}';
 const SHELL = '/static/training/offline.html';
 const ASSETS = [SHELL, '/static/training/style.css', '/static/training/workout.js', '/static/training/pwa.js', '/static/training/icon.svg', '/manifest.webmanifest'];
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS.map(url => new Request(url, {cache: 'reload'})))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', event => {
   event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('sila-kolarza-shell-') && key !== CACHE).map(key => caches.delete(key)))).then(() => self.clients.claim()));

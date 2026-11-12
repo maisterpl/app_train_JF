@@ -1,9 +1,14 @@
-import {cacheWorkout, pendingOperations, csrfToken, jsonRequest, syncAll, uuid} from './workout.js';
+import {cacheWorkout, pendingOperations, csrfToken, jsonRequest, syncAll, uuid, lastWorkoutKey, clearCurrentOfflineData} from './workout.js';
 
 let syncError = '';
 async function refreshStatus() {
   const connection = document.getElementById('connection-status');
   const counter = document.getElementById('pending-count');
+  if (document.body.hasAttribute('data-account-id') && !document.body.dataset.accountId) {
+    if (connection) connection.textContent = 'Zaloguj się';
+    if (counter) counter.textContent = '';
+    return;
+  }
   let count = 0;
   try { count = (await pendingOperations()).length; } catch { syncError = 'Brak dostępu do pamięci offline'; }
   if (connection) {
@@ -68,7 +73,7 @@ document.addEventListener('click', async event => {
     const data = await jsonRequest(`/api/plans/${button.dataset.planId}/prepare/`, {workout_id: workoutId, date: dateInput?.value || localDate});
     const workout = data.workout || data;
     await cacheWorkout(workout);
-    localStorage.setItem('last-workout-id', workout.id);
+    localStorage.setItem(lastWorkoutKey, workout.id);
     localStorage.removeItem(storageKey);
     feedback.textContent = 'Trening rozpoczęty i zapisany na tym urządzeniu. Możesz ćwiczyć bez połączenia. ';
     const link = document.createElement('a');
@@ -87,3 +92,15 @@ document.addEventListener('click', async event => {
 
 refreshStatus();
 if (navigator.onLine) syncAll();
+
+document.addEventListener('submit', async event => {
+  if (!['account-logout','logout-confirmation'].includes(event.target.id)) return;
+  event.preventDefault();
+  const form=event.target;
+  try {
+    const pending=await pendingOperations();
+    if (pending.length) { alert(`Najpierw zsynchronizuj ${pending.length} zmian treningu. Otwórz trening online i poczekaj na zapis.`); return; }
+    await clearCurrentOfflineData();
+    form.submit();
+  } catch (error) { alert(error.message); }
+});

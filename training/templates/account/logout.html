@@ -1,0 +1,3 @@
+{% extends 'account/base_manage.html' %}
+{% block head_title %}Wylogowanie{% endblock %}
+{% block content %}<section class="card"><h1>Wyloguj się</h1><p>Przed wylogowaniem prześlij oczekujące zmiany treningu. Lokalny zapis zostanie usunięty z tego urządzenia.</p><form method="post" id="logout-confirmation">{% csrf_token %}<button type="submit" class="button primary">Wyloguj</button></form></section>{% endblock %}

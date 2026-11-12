@@ -1,3 +1,4 @@
+const {authenticateBrowser}=require('./browser_test_account.cjs');
 /* Verify that ready phase sets are discoverable and editable from Plans.
  * Requires migrated Django on localhost:8000. Removes its own QA profile. */
 const assert = require('node:assert/strict');
@@ -29,6 +30,7 @@ print(json.dumps({'profile':p.pk,'aa':{s.position:s.pk for s in Phase.objects.ge
     browser = await chromium.launch(options);
     for (const mobile of [false,true]) {
       const context = await browser.newContext({baseURL,viewport:mobile ? {width:390,height:844}:{width:1440,height:1000},isMobile:mobile,hasTouch:mobile});
+    await authenticateBrowser(context,fixture.profile);
       try {
         const page = await context.newPage();
         const errors = [];
@@ -46,7 +48,7 @@ print(json.dumps({'profile':p.pk,'aa':{s.position:s.pk for s in Phase.objects.ge
         await page.screenshot({path:path.join(os.tmpdir(),`friel-catalog-${mobile?'mobile':'desktop'}.png`),fullPage:true});
         await page.locator('#phase-template-AA a').click();
         assert.equal(await page.locator('[name=name]').inputValue(),'AA — adaptacja anatomiczna');
-        await page.locator('form button[type=submit]').click();
+        await page.locator('main form button[type=submit]').click();
         await page.waitForURL(/\/plans\/\d+\/add\/\?preset=1/);
         assert.equal(await page.locator('.slot-selection-form input[type=checkbox]:checked').count(),8);
         const first = await page.locator(`[name=exercise_${fixture.aa[1]}]`).inputValue();
@@ -60,7 +62,7 @@ print(json.dumps({'profile':p.pk,'aa':{s.position:s.pk for s in Phase.objects.ge
         assert.equal(await page.locator('.slot-selection-form').count(),0);
         await page.goto('/plans/');
         await page.locator('#phase-template-US a').click();
-        await page.locator('form button[type=submit]').click();
+        await page.locator('main form button[type=submit]').click();
         await page.waitForURL(/\/plans\/\d+\/add\/\?preset=1/);
         assert.equal(await page.locator('.slot-selection-form input[type=checkbox]:checked').count(),6);
         const series = page.locator(`[name=sets_${fixture.us[1]}]`);

@@ -1,0 +1,33 @@
+# Creates a PAID service and persistent disk only after the owner approves in Render.
+services:
+  - type: web
+    name: sila-na-trase
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health/
+    autoDeployTrigger: "off"
+    disk:
+      name: training-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: DJANGO_DEBUG
+        value: "0"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_TRUST_PROXY
+        value: "true"
+      - key: DJANGO_DB_PATH
+        value: /var/data/db.sqlite3
+      - key: EMAIL_HOST
+        sync: false
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "true"
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false

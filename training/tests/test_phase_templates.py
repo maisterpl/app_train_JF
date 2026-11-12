@@ -1,3 +1,5 @@
+from django.contrib.auth import get_user_model
+from allauth.account.models import EmailAddress
 """The supplied phase exercises must be discoverable before a plan exists."""
 from django.test import TestCase
 from django.urls import reverse
@@ -8,7 +10,10 @@ from training.services import prescription_data
 
 class ReadyPhaseTemplateTests(TestCase):
     def setUp(self):
-        self.profile = Profile.objects.create(name='Gotowe zestawy — test')
+        self.user = get_user_model().objects.create_user(username='tester', email='tester@example.test')
+        EmailAddress.objects.create(user=self.user, email=self.user.email, verified=True, primary=True)
+        self.client.force_login(self.user)
+        self.profile = Profile.objects.create(owner=self.user, name='Gotowe zestawy — test')
         session = self.client.session
         session['active_profile_id'] = self.profile.pk
         session.save()

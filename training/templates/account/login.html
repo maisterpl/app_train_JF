@@ -1,0 +1,6 @@
+{% extends 'account/base_entrance.html' %}{% load socialaccount %}
+{% block head_title %}Logowanie{% endblock %}
+{% block content %}<section class="card form-card narrow"><p class="eyebrow">TWOJE DANE NA TWOIM KONCIE</p><h1>Zaloguj się</h1>
+{% if google_login_enabled %}<form method="post" action="{% provider_login_url 'google' %}">{% csrf_token %}<button class="button primary full" type="submit">Kontynuuj z Google</button></form><p>lub użyj adresu e-mail</p>{% endif %}
+<form method="post">{% csrf_token %}{{ form.as_p }}{% if redirect_field_value %}<input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}">{% endif %}<button class="button primary full" type="submit">Zaloguj się e-mailem</button></form>
+<p><a href="{% url 'account_reset_password' %}">Nie pamiętam hasła</a></p><p>Nie masz konta? <a href="{% url 'account_signup' %}">Zarejestruj się</a></p></section>{% endblock %}

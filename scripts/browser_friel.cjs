@@ -1,3 +1,4 @@
+const {authenticateBrowser}=require('./browser_test_account.cjs');
 /* Real-browser checks for sourced phase data and per-set US prescriptions.
  * Requires migrated local Django server; creates and removes its own QA profile.
  * npm install; npx playwright install chromium; node scripts/browser_friel.cjs
@@ -63,6 +64,7 @@ print(json.dumps({'profile':p.pk,'workouts':ids,'rm_count':p.one_rep_maxes.count
     else if (process.platform !== 'win32' && fs.existsSync('/usr/bin/chromium')) options.executablePath='/usr/bin/chromium';
     browser=await chromium.launch(options);
     context=await browser.newContext({baseURL,viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+    await authenticateBrowser(context,fixture.profile);
     const page=await context.newPage();
     const errors=[];
     page.on('pageerror', error=>errors.push(error.message));

@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.conf import settings
 from django.utils import timezone
 
 
@@ -13,6 +14,8 @@ NONNEGATIVE = MinValueValidator(0)
 
 
 class Profile(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+                              related_name='training_profiles', verbose_name='Właściciel konta')
     name = models.CharField('Imię / nazwa', max_length=100)
     notes = models.TextField('Uwagi', blank=True)
     rounding_step = models.DecimalField('Krok zaokrąglania (kg)', max_digits=5, decimal_places=2, default=Decimal('2.5'), validators=[POSITIVE])

@@ -1,3 +1,5 @@
+from django.contrib.auth import get_user_model
+from allauth.account.models import EmailAddress
 from decimal import Decimal
 
 from django.test import TestCase
@@ -9,8 +11,11 @@ from training.models import BodyWeight, Exercise, Phase, Plan, PlanItem, Profile
 
 class PlanningViewTests(TestCase):
     def setUp(self):
-        self.profile = Profile.objects.create(name="Osoba testowa", rounding_step=Decimal("2.50"))
-        self.other = Profile.objects.create(name="Druga osoba")
+        self.user = get_user_model().objects.create_user(username='tester', email='tester@example.test')
+        EmailAddress.objects.create(user=self.user, email=self.user.email, verified=True, primary=True)
+        self.client.force_login(self.user)
+        self.profile = Profile.objects.create(owner=self.user, name="Osoba testowa", rounding_step=Decimal("2.50"))
+        self.other = Profile.objects.create(owner=self.user, name="Druga osoba")
         session = self.client.session
         session["active_profile_id"] = self.profile.pk
         session.save()

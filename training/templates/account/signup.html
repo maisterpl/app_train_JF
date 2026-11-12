@@ -1,0 +1,5 @@
+{% extends 'account/base_entrance.html' %}{% load socialaccount %}
+{% block head_title %}Nowe konto{% endblock %}
+{% block content %}<section class="card form-card narrow"><h1>Utwórz konto</h1><p>Treningi, pomiary i wykresy będą dostępne po zalogowaniu na to konto. Po rejestracji potwierdź swój adres e-mail.</p>
+{% if google_login_enabled %}<form method="post" action="{% provider_login_url 'google' %}">{% csrf_token %}<button class="button secondary full" type="submit">Kontynuuj z Google</button></form>{% endif %}
+<form method="post">{% csrf_token %}{{ form.as_p }}<button class="button primary full" type="submit">Zarejestruj się</button></form><p><a href="{% url 'account_login' %}">Mam już konto</a></p></section>{% endblock %}

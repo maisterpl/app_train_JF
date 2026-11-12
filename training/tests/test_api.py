@@ -1,3 +1,5 @@
+from django.contrib.auth import get_user_model
+from allauth.account.models import EmailAddress
 import json
 import uuid
 from datetime import date
@@ -11,8 +13,11 @@ from training.services import start_workout
 
 class SyncApiTests(TestCase):
     def setUp(self):
-        self.profile = Profile.objects.create(name='Pierwszy')
-        self.other = Profile.objects.create(name='Drugi')
+        self.user = get_user_model().objects.create_user(username='tester', email='tester@example.test')
+        EmailAddress.objects.create(user=self.user, email=self.user.email, verified=True, primary=True)
+        self.client.force_login(self.user)
+        self.profile = Profile.objects.create(owner=self.user, name='Pierwszy')
+        self.other = Profile.objects.create(owner=self.user, name='Drugi')
         self.phase = Phase.objects.create(name='DEMO')
         self.exercise = Exercise.objects.create(name='Przysiad testowy')
         self.plan = Plan.objects.create(profile=self.profile, phase=self.phase, name='Testowy')
@@ -32,6 +37,7 @@ class SyncApiTests(TestCase):
 
     def test_post_requires_csrf_and_token_allows_sync(self):
         client = Client(enforce_csrf_checks=True)
+        client.force_login(self.user)
         op = self.operation()
         self.assertEqual(self.send([op], client).status_code, 403)
         token = client.get(reverse('api_csrf')).json()['csrfToken']

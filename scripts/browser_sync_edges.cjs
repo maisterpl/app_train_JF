@@ -1,3 +1,4 @@
+const {authenticateBrowser}=require('./browser_test_account.cjs');
 /* Integration check against a running local Django server.
  * Install Playwright separately; run: node scripts/browser_sync_edges.cjs
  * Optional: APP_TEST_URL, BROWSER_TEST_PYTHON, BROWSER_TEST_CHROMIUM.
@@ -21,7 +22,7 @@ import json, uuid
 from training.models import Profile,Plan,PlanItem,BodyWeight,OneRepMax
 from training.services import prescription_data
 from django.utils import timezone
-source=Plan.objects.filter(phase__is_demo=True,items__isnull=False).first()
+source=Plan.objects.filter(profile__owner__isnull=True,profile__name="Kolarz DEMO",phase__is_demo=True,items__isnull=False).first()
 assert source, 'Najpierw python manage.py seed_demo'
 p=Profile.objects.create(name='QA synchronizacja '+str(uuid.uuid4())[:8])
 BodyWeight.objects.create(profile=p,date=timezone.localdate(),value=80)
@@ -49,6 +50,7 @@ async function waitFor(test, message) {
     browser = await chromium.launch(launchOptions);
     // Transport failure scenarios are tested independently of SW interception.
     context = await browser.newContext({baseURL, serviceWorkers: 'block'});
+    await authenticateBrowser(context,fixture.profile);
     const page = await context.newPage();
     await page.goto('/');
     await page.evaluate(async profileId => {

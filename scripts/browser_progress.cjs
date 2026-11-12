@@ -1,3 +1,4 @@
+const {authenticateBrowser}=require('./browser_test_account.cjs');
 /* Real progress chart checks. Requires migrated Django; removes its QA data. */
 const assert = require('node:assert/strict');
 const path = require('node:path');
@@ -55,6 +56,7 @@ print(json.dumps({'profiles':[p.pk,other.pk],'profile':p.pk,'exercise':exercise.
   browser=await chromium.launch(options);
   for(const mobile of [false,true]) {
    const context=await browser.newContext({baseURL,viewport:mobile?{width:390,height:844}:{width:1440,height:1000},isMobile:mobile,hasTouch:mobile});
+    await authenticateBrowser(context,fixture.profile);
    try {
     const page=await context.newPage();
     const errors=[];
