@@ -42,6 +42,16 @@ Biblioteka ćwiczeń jest wspólna dla profili na tym urządzeniu; plany, 1RM i 
 
 W **Plany → Twoje plany** przy każdym planie znajduje się **Usuń**. Operacja wymaga potwierdzenia. Usuwa plan wielokrotnego użytku, zachowując zakończone treningi, wykresy oraz możliwość wznowienia sesji w toku. Gotowe zestawy faz w katalogu pozostają dostępne.
 
+## Edycja ćwiczeń i filmy YouTube
+
+Otwórz **Ćwiczenia → wybrane ćwiczenie → Edytuj ćwiczenie**. Możesz edytować nazwę, kategorię, opis techniki i opcjonalny link YouTube, także dla ćwiczeń standardowych z programu Friela. Nazwa i opis w bazie są wspólne dla profili na tym urządzeniu. Parametry pozycji planów i kopie zapisanych sesji nie są przepisywane.
+
+Przy tworzeniu nowego ćwiczenia również dostępne jest pole filmu. Obsługiwane są linki HTTPS do konkretnego filmu: `youtube.com/watch`, `youtu.be`, Shorts i transmisje live. Aplikacja sprawdza format i domenę, nie ocenia treści ani techniki pokazanej w filmie. Przycisk **Film instruktażowy · YouTube** pojawia się w szczegółach ćwiczenia, planie i podczas treningu. Otwiera film w nowej karcie. Nie ma automatycznego osadzania, pobierania ani przechowywania filmów offline; oglądanie wymaga internetu. Link jest własnym uzupełnieniem użytkownika, nie materiałem przypisanym Joe Frielowi. Pole można wyczyścić, aby usunąć link z bieżącej definicji ćwiczenia.
+
+Tryb powtórzenia/czas i sposób zapisu ciężaru można zmienić we własnym, jeszcze nieużytym ćwiczeniu. Są zablokowane dla ćwiczeń standardowych oraz użytych w planach, pomiarach 1RM lub sesjach, aby nie zmienić znaczenia wyników. Do innego sposobu rejestrowania dodaj osobne ćwiczenie.
+
+**Usuń ćwiczenie** jest dostępne wyłącznie dla ćwiczeń dodanych przez użytkownika. Wymaga potwierdzenia i usuwa pozycję z aktywnej listy oraz wyboru do nowych planów. Zachowuje dane potrzebne istniejącym planom, 1RM, rozpoczętym sesjom, historii i wykresom. Dotychczasowy plan może nadal zawierać i używać tego ćwiczenia. Ćwiczeń standardowych nie można usunąć. Eksport/import JSON obejmuje edycje, linki i stan usuniętych własnych ćwiczeń.
+
 ## Kopie zapasowe i przenoszenie
 
 1. **Ustawienia → Eksportuj wszystko · JSON** lub eksport aktywnego profilu.

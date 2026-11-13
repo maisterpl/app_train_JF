@@ -46,3 +46,11 @@ Rozszerzenie tego samego dnia: pola powtórzeń korzystają z ostatniej zapisane
 - `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`: **PASS** na obu ekranach. Dotychczasowe fazy, podpowiadanie ciężaru/powtórzeń, historia, wykresy i wcześniejsze scenariusze offline nadal działają.
 
 Testy porównują istniejący plan, fazy i pozycje źródłowe przed i po dodawaniu własnych danych — pozostają bez zmian. Obejrzano zrzut własnego planu na ekranie telefonu. Nie odnotowano błędów JavaScript ani żądań POST z danymi treningowymi. Zachowano ograniczenia weryfikacji opisane wyżej: bez fizycznego telefonu, Safari i publicznego hostingu.
+
+## Edycja ćwiczeń, usuwanie własnych pozycji i YouTube — 13 listopada 2026
+
+- `npm test`: **44/44 PASS**. Edycja własnych i standardowych ćwiczeń, walidacja adresów YouTube, ochrona przed usunięciem standardowej pozycji i zmianą pochodzenia formularzem, blokada zmiany trybu/konwencji obciążenia używanego ćwiczenia, zachowanie planów/1RM/sesji/wykresów po usunięciu własnej pozycji, kopie linków w sesjach, eksport/import i zgodność starszych kopii bez pola filmu. Nieprawidłowe linki i próby oznaczenia standardowego ćwiczenia jako usuniętego są odrzucane.
+- `CHROMIUM_PATH=/usr/bin/chromium npm run test:custom`: **PASS** na komputerze 1440×1000 i emulowanym telefonie 390×844. Film przy tworzeniu i edycji, edycja standardowego ćwiczenia bez przycisku usuwania, błędny link bez utraty wpisów, przycisk filmu w sesji i jego bezpieczne atrybuty nowej karty, edycja własnej pozycji bez zmiany historycznej kopii, anulowanie i potwierdzenie usuwania, brak usuniętego ćwiczenia w nowych wyborach, dalsza edycja dotychczasowego planu oraz eksport/import filmów i usuniętych pozycji offline.
+- `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`: **PASS** na obu ekranach; wcześniejsze funkcje faz, podpowiedzi serii, historii i offline nadal działają.
+
+Nie odnotowano błędów JavaScript, żądań POST ani automatycznych żądań do zewnętrznych serwisów podczas wyświetlania linków. Filmów nie otwierano w YouTube i nie sprawdzano ich treści ani odtwarzania; testy sprawdzają zapis, walidację i obecność prawidłowego odnośnika. Wersja cache PWA została odświeżona. Pozostają wcześniejsze ograniczenia: brak testu na fizycznym telefonie, Safari i docelowym hostingu HTTPS.

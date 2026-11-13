@@ -179,3 +179,55 @@ test('own-plan backup rejects forged phase links and missing custom parameters',
     const bad=D.clone(s);corrupt(bad);await assert.rejects(()=>B.parseBackup(JSON.stringify({format:'sila-na-trase-local',version:1,data:bad})));
   }
 });
+
+const testVideo='https://www.youtube.com/watch?v=AbCdEfGhI12';
+test('YouTube links accept videos/shorts/live/mobile and normalize tracking parameters',()=>{
+  for(const link of ['https://youtu.be/AbCdEfGhI12?si=tracking','https://m.youtube.com/watch?v=AbCdEfGhI12','https://www.youtube.com/shorts/AbCdEfGhI12','https://www.youtube.com/live/AbCdEfGhI12','https://www.youtube-nocookie.com/embed/AbCdEfGhI12'])assert.equal(D.youtubeURL(link),testVideo);
+  assert.equal(D.youtubeURL('https://youtu.be/AbCdEfGhI12?t=1m20s'),testVideo+'&t=1m20s');assert.equal(D.youtubeURL(''),'');
+});
+test('YouTube links reject executable URLs, lookalike hosts and non-video pages',()=>{
+  for(const link of ['javascript:alert(1)','data:text/html,x','http://youtube.com/watch?v=AbCdEfGhI12','https://youtube.com.evil.invalid/watch?v=AbCdEfGhI12','https://evil.invalid/youtube.com/watch?v=AbCdEfGhI12','https://user@youtube.com/watch?v=AbCdEfGhI12','https://youtube.com:444/watch?v=AbCdEfGhI12','https://www.youtube.com/playlist?list=123','https://www.youtube.com/@channel','https://youtu.be/short','not a url',23])assert.throws(()=>D.youtubeURL(link));
+});
+test('own exercises can be edited; origin cannot be changed by form values',()=>{
+  const s=demo(),ex=D.addExercise(s,{name:'Moje ćwiczenie',mode:'reps',load_notation:'kg',video_url:testVideo});
+  assert(!D.exerciseStructureLocked(s,ex.id));D.updateExercise(s,ex.id,{name:'Nowa nazwa',category:'Tułów',mode:'time',load_notation:'Bez obciążenia',description:'Nowe uwagi',video_url:'https://youtu.be/AbCdEfGhI12',is_custom:false});
+  assert.equal(ex.name,'Nowa nazwa');assert.equal(ex.mode,'time');assert.equal(ex.video_url,testVideo);assert.equal(ex.is_custom,true);D.validateState(s);
+  assert.throws(()=>D.updateExercise(s,ex.id,{name:'Przysiad'}),/już w bazie/);
+});
+test('built-in exercises accept descriptive edits/video but can never be removed',()=>{
+  const s=demo(),source=D.clone(s.slots),ex=D.byId(s.exercises,'friel-ex-1');
+  D.updateExercise(s,ex.id,{description:'Moje uwagi techniczne',video_url:testVideo,is_custom:true});
+  assert.equal(ex.video_url,testVideo);assert.notEqual(ex.is_custom,true);assert.deepEqual(s.slots,source);
+  for(const base of s.exercises.filter(x=>x.is_custom!==true))assert.throws(()=>D.deleteExercise(s,base.id),/wyłącznie/);
+  assert.throws(()=>D.updateExercise(s,ex.id,{mode:'time'}),/Nie można zmienić/);assert.throws(()=>D.updateExercise(s,ex.id,{load_notation:'na stronę'}),/Nie można zmienić/);D.validateState(s);
+});
+test('used own exercise protects mode/load convention and historical snapshots during edits',()=>{
+  const s=demo(),ex=D.addExercise(s,{name:'Moje wyciskanie',mode:'reps',load_notation:'kg',video_url:testVideo}),p=D.createCustomPlan(s,s.activeProfileId,{name:'Mój'});
+  D.addCustomPlanItem(s,p.id,ownValues(ex.id,{basis:'fixed',fixed_weight:'20'}));D.measure(s,'rms',s.activeProfileId,{exercise_id:ex.id,date:D.today(),value:'60'});
+  const w=D.startWorkout(s,p.id),before=D.clone(w);D.updateExercise(s,ex.id,{name:'Moja nowa nazwa',description:'Zmieniony opis',video_url:'https://youtu.be/ZyXwVuTsR12'});
+  assert.deepEqual(w,before);assert.equal(w.exercises[0].snapshot.video_url,testVideo);assert.equal(w.exercises[0].snapshot.name,'Moje wyciskanie');
+  assert.throws(()=>D.updateExercise(s,ex.id,{mode:'time'}));assert.throws(()=>D.updateExercise(s,ex.id,{load_notation:'ciężar jednego hantla'}));D.validateState(s);
+});
+test('deleting own exercise removes it from new choices while keeping plans, RM and results',()=>{
+  const s=demo(),ex=D.addExercise(s,{name:'Moje wyciskanie',mode:'reps',load_notation:'kg',video_url:testVideo}),p=D.createCustomPlan(s,s.activeProfileId,{name:'Mój'});
+  D.addCustomPlanItem(s,p.id,ownValues(ex.id,{basis:'fixed',fixed_weight:'20'}));D.measure(s,'rms',s.activeProfileId,{exercise_id:ex.id,date:D.today(),value:'60'});
+  const w=D.startWorkout(s,p.id);D.saveSet(s,w.id,w.exercises[0].id,{weight:'20',reps:10});D.finish(s,w.id);
+  const before=D.clone({plans:s.plans,rms:s.rms,workouts:s.workouts});D.deleteExercise(s,ex.id);
+  assert(ex.archived);assert.deepEqual(s.plans,before.plans);assert.deepEqual(s.rms,before.rms);assert.deepEqual(s.workouts,before.workouts);assert.equal(D.exerciseProgress(s,s.activeProfileId,ex.id).length,1);
+  const another=D.createCustomPlan(s,s.activeProfileId,{name:'Inny'});assert.throws(()=>D.addCustomPlanItem(s,another.id,ownValues(ex.id)),/usunięto/);
+  const resumed=D.startWorkout(s,p.id);assert.equal(resumed.exercises[0].snapshot.name,ex.name);D.validateState(s);
+});
+test('backup retains edited videos and deleted exercise references without reviving or merging them',async()=>{
+  const s=demo(),ex=D.addExercise(s,{name:'Moje ćwiczenie',mode:'reps',load_notation:'kg',video_url:testVideo}),p=D.createCustomPlan(s,s.activeProfileId,{name:'Mój'});
+  D.addCustomPlanItem(s,p.id,ownValues(ex.id,{basis:'fixed',fixed_weight:'25'}));const w=D.startWorkout(s,p.id);D.saveSet(s,w.id,w.exercises[0].id,{weight:'25',reps:10});D.finish(s,w.id);D.deleteExercise(s,ex.id);
+  D.updateExercise(s,'friel-ex-1',{video_url:testVideo});const target=demo();B.importBackup(target,await B.parseBackup(JSON.stringify(B.makeBackup(s))));
+  const archived=target.exercises.find(e=>e.archived);assert(archived?.is_custom);assert.equal(archived.video_url,testVideo);assert(target.plans.some(p=>p.items.some(i=>i.exercise_id===archived.id)));assert.equal(target.workouts[0].exercises[0].snapshot.video_url,testVideo);assert(target.exercises.some(e=>e.name==='Przysiad'&&e.video_url===testVideo));D.validateState(target);
+});
+test('backup rejects unsafe video links in exercises and session snapshots and removal of standard exercise',async()=>{
+  const {s,w,ex}=session();
+  for(const corrupt of [x=>x.exercises[0].video_url='javascript:alert(1)',x=>x.workouts[0].exercises[0].snapshot.video_url='https://evil.invalid/watch?v=AbCdEfGhI12',x=>x.exercises[0].archived=true]){const bad=D.clone(s);corrupt(bad);await assert.rejects(()=>B.parseBackup(JSON.stringify({format:'sila-na-trase-local',version:1,data:bad})));}
+});
+test('empty optional video does not duplicate exercises or disconnect RM during import',async()=>{
+  const s=demo(),target=D.newState(catalog);D.updateExercise(s,'demo-ex-1',{video_url:''});
+  B.importBackup(target,await B.parseBackup(JSON.stringify(B.makeBackup(s))));assert.equal(target.exercises.length,catalog.exercises.length);assert.equal(target.rms[0].exercise_id,'demo-ex-1');
+});
