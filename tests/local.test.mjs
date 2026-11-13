@@ -123,3 +123,59 @@ test('Django schema 2 import preserves full session and source definitions, drop
 });
 test('Django importer rejects orphaned rows instead of silently discarding them',async()=>{const legacy=legacyFixture();legacy.plan_items[0].fields.plan=999;await assert.rejects(()=>B.parseBackup(JSON.stringify(legacy)),/osierocone/);});
 test('imported RM remains usable with a newly created plan from same catalog',async()=>{const source=demo(),target=D.newState(catalog);B.importBackup(target,await B.parseBackup(JSON.stringify(B.makeBackup(source))));const p=D.createPlan(target,target.activeProfileId,{name:'Nowy',phase_id:'DEMO'});D.addPlanItems(target,p.id,[{slot_id:'DEMO-1',exercise_id:'demo-ex-1'}]);const w=D.startWorkout(target,p.id);assert.equal(w.exercises[0].snapshot.rm,'100');});
+
+const ownValues=(exerciseId,extra={})=>({exercise_id:exerciseId,sets_min:3,reps_min:10,rest_seconds:90,basis:'rm',percent_min:'60',notes:'Kontroluj ruch',...extra});
+test('own exercise validates name/mode/convention and cannot replace existing definitions',()=>{
+  const s=demo(),before=D.clone(s.exercises);
+  const ex=D.addExercise(s,{name:'Wyciskanie hantli',category:'Barki',mode:'reps',description:'Kontrolowany ruch.',load_notation:'Ciężar jednego hantla w kg'});
+  assert(ex.is_custom);assert.equal(ex.load_notation,'Ciężar jednego hantla w kg');assert.deepEqual(s.exercises.slice(0,-1),before);
+  for(const values of [{name:'',mode:'reps',load_notation:'kg'},{name:'Inne',mode:'invalid',load_notation:'kg'},{name:'Inne',mode:'time',load_notation:''},{name:' wyciskanie HANTLI ',mode:'reps',load_notation:'kg'}])assert.throws(()=>D.addExercise(s,values));
+});
+test('own plan uses the exercise library without changing source phases or existing plans',()=>{
+  const s=demo(),before=D.clone({phases:s.phases,slots:s.slots,plans:s.plans});
+  const plan=D.createCustomPlan(s,s.activeProfileId,{name:'Mój plan'});D.addCustomPlanItem(s,plan.id,ownValues('friel-ex-1'));
+  assert.equal(plan.phase_id,null);assert.equal(D.planPhase(s,plan).name,'Plan własny');assert.equal(plan.items[0].slot_id,null);assert.equal(plan.items[0].prescription.notes,'Kontroluj ruch');
+  assert.deepEqual(s.phases,before.phases);assert.deepEqual(s.slots,before.slots);assert.deepEqual(s.plans[0],before.plans[0]);D.validateState(s);
+  assert.throws(()=>D.addCustomPlanItem(s,s.plans[0].id,ownValues('friel-ex-1')),/własnym planie/);
+});
+test('own plan validates required series/reps/rest/load percentage and ranges',()=>{
+  const s=demo(),p=D.createCustomPlan(s,s.activeProfileId,{name:'Mój'});
+  for(const bad of [{sets_min:0},{reps_min:''},{rest_seconds:''},{rest_seconds:-1},{percent_min:''},{basis:''},{basis:'fixed',fixed_weight:''},{sets_min:5,sets_max:2},{reps_min:10,reps_max:6},{percent_min:'70',percent_max:'50'}])assert.throws(()=>D.addCustomPlanItem(s,p.id,ownValues('friel-ex-1',bad)));
+  assert.equal(p.items.length,0);D.addCustomPlanItem(s,p.id,ownValues('friel-ex-1',{rest_seconds:0,basis:'none'}));assert.equal(p.items[0].prescription.rest_seconds,0);D.validateState(s);
+});
+test('own plan calculates RM and body weight separately and supports time exercises',()=>{
+  const s=demo(),p=D.createCustomPlan(s,s.activeProfileId,{name:'Własny'});
+  D.addCustomPlanItem(s,p.id,ownValues('demo-ex-1'));
+  D.addCustomPlanItem(s,p.id,ownValues('demo-ex-2',{basis:'body',percent_min:'25'}));
+  D.addCustomPlanItem(s,p.id,ownValues('demo-ex-3',{basis:'none',seconds:45}));
+  const w=D.startWorkout(s,p.id);assert.equal(w.phase_name,'Plan własny');assert.equal(w.exercises[0].snapshot.load.min,'60');assert.equal(w.exercises[1].snapshot.load.min,'20');assert.equal(w.exercises[2].snapshot.seconds,45);assert.equal(w.exercises[2].snapshot.reps_min,null);assert.equal(w.exercises[2].snapshot.parameter_code,'');
+  D.saveSet(s,w.id,w.exercises[2].id,{weight:'0',seconds:47});assert.equal(w.exercises[2].sets[0].seconds,47);D.validateState(s);
+});
+test('editing, reordering and removing own items preserves session snapshots',()=>{
+  const s=demo(),p=D.createCustomPlan(s,s.activeProfileId,{name:'Własny'});
+  const a=D.addCustomPlanItem(s,p.id,ownValues('demo-ex-1')),b=D.addCustomPlanItem(s,p.id,ownValues('demo-ex-2',{basis:'body',percent_min:'25'}));
+  D.moveItem(s,p.id,b.id,-1);assert.equal(p.items[0].id,b.id);
+  const w=D.startWorkout(s,p.id),snapshot=D.clone(w);
+  D.updateItem(s,p.id,a.id,ownValues('friel-ex-1',{sets_min:4,reps_min:6,basis:'fixed',fixed_weight:'45',notes:'Własna zmiana'}));p.items=p.items.filter(i=>i.id!==b.id);
+  assert.deepEqual(w,snapshot);assert.equal(p.items[0].prescription.fixed_weight,'45');D.validateState(s);
+});
+test('native backup keeps own plans/exercises, parameters and workout results',async()=>{
+  const s=demo(),old=D.clone(s.plans[0]),ex=D.addExercise(s,{name:'Moje ćwiczenie',mode:'reps',load_notation:'kg',description:'Mój opis'}),p=D.createCustomPlan(s,s.activeProfileId,{name:'Mój własny'});
+  D.addCustomPlanItem(s,p.id,ownValues(ex.id,{basis:'body',percent_min:'25'}));const w=D.startWorkout(s,p.id);D.saveSet(s,w.id,w.exercises[0].id,{weight:'20',reps:10});D.finish(s,w.id);
+  const target=demo();B.importBackup(target,await B.parseBackup(JSON.stringify(B.makeBackup(s,s.activeProfileId))));
+  const restored=target.plans.find(D.isCustomPlan);assert(restored);assert.equal(restored.phase_id,null);assert.equal(restored.items[0].prescription.notes,'Kontroluj ruch');assert(target.exercises.find(e=>e.id===restored.items[0].exercise_id).is_custom);assert.equal(target.workouts[0].exercises[0].snapshot.load.min,'20');D.validateState(target);assert.deepEqual(s.plans[0],old);
+});
+test('deleting a plan preserves completed and active sessions, snapshots and other plans',async()=>{
+  const {s,w,ex}=session();save(s,w,ex);D.finish(s,w.id);const active=D.startWorkout(s,s.plans[0].id),old=D.clone(s.workouts);
+  const other=D.createCustomPlan(s,s.activeProfileId,{name:'Nie usuwaj'}),remaining=D.clone(other),removed=s.plans[0].id;
+  D.deletePlan(s,removed);assert.equal(s.plans.length,1);assert.deepEqual(s.plans[0],remaining);
+  for(const [i,row] of s.workouts.entries()){assert.equal(row.plan_id,null);assert.deepEqual({...row,plan_id:old[i].plan_id},old[i]);}
+  assert.equal(s.workouts.find(x=>x.id===active.id).status,'active');assert.equal(D.exerciseProgress(s,w.profile_id,ex.snapshot.exercise_id).length,1);D.validateState(s);
+  const target=demo();B.importBackup(target,await B.parseBackup(JSON.stringify(B.makeBackup(s))));assert(target.workouts.every(x=>x.plan_id===null));D.validateState(target);
+});
+test('own-plan backup rejects forged phase links and missing custom parameters',async()=>{
+  const s=demo(),p=D.createCustomPlan(s,s.activeProfileId,{name:'Mój'});D.addCustomPlanItem(s,p.id,ownValues('demo-ex-1'));
+  for(const corrupt of [x=>x.plans.at(-1).phase_id='AA',x=>x.plans.at(-1).items[0].slot_id='AA-1',x=>x.plans.at(-1).items[0].prescription.rest_seconds=null,x=>x.plans.at(-1).items[0].prescription.percent_min=null]) {
+    const bad=D.clone(s);corrupt(bad);await assert.rejects(()=>B.parseBackup(JSON.stringify({format:'sila-na-trase-local',version:1,data:bad})));
+  }
+});

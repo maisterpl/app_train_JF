@@ -1,4 +1,4 @@
-const RELEASE = 'cf609495f8dfc283';
+const RELEASE = '347f525ead655440';
 const PREFIX='sila-local-shell-';
 const CACHE=PREFIX+RELEASE;
 const ASSETS=['./','./index.html','./style.css','./app.mjs','./domain.mjs','./storage.mjs','./backup.mjs','./catalog.json','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];

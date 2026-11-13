@@ -29,13 +29,13 @@ async function save(page){await page.locator('#set-form button[type=submit]').cl
       for(const delta of [-10,-5,-1,1,5,10])await page.locator(`[data-action=adjust][data-field=weight][data-delta="${delta}"]`).click();
       assert.equal(Number(await page.locator('#weight').inputValue()),start);
       await page.locator('[data-field=reps][data-delta="1"]').click();assert.equal(await page.locator('.set-list>li').count(),1);assert.match(await page.locator('.set-list').innerText(),/Nie zapisano/);
-      await page.locator('#weight').fill('61,5');await save(page);await save(page);assert.equal((await state(page)).workouts[0].exercises[0].sets.length,2);
+      await page.locator('#weight').fill('61,5');await save(page);assert.equal(await page.locator('#weight').inputValue(),'61.5');assert.equal(await page.locator('#reps').inputValue(),'9');await save(page);assert.equal((await state(page)).workouts[0].exercises[0].sets.length,2);assert.equal((await state(page)).workouts[0].exercises[0].sets[1].reps,9);
       assert.match(await page.locator('#rest-timer').innerText(),/0:[0-5]\d|1:00/);
       await page.locator('[data-action=edit-set]').first().click();await page.locator('#weight').fill('62');await save(page);assert.equal((await state(page)).workouts[0].exercises[0].sets[0].weight,'62');
       await page.locator('[data-action=delete-set]').last().click();assert.equal((await state(page)).workouts[0].exercises[0].sets.length,1);
       await noOverflow(page);await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(artifacts,`${mobile?'mobile':'desktop'}-workout.png`),fullPage:true});
       await context.setOffline(true);await page.locator('[data-action=next]').click();await page.getByRole('heading',{name:'DEMO — wejście na stopień',exact:true}).waitFor();
-      await save(page);await page.reload();await page.locator('#set-form').waitFor();assert.match(await page.locator('h1').innerText(),/wejście na stopień/);assert.equal((await state(page)).workouts[0].exercises[1].sets.length,1);
+      await page.locator('#weight').fill('14,5');await page.locator('#reps').fill('11');await save(page);await page.reload();await page.locator('#set-form').waitFor();assert.match(await page.locator('h1').innerText(),/wejście na stopień/);assert.equal((await state(page)).workouts[0].exercises[1].sets.length,1);assert.equal(await page.locator('#weight').inputValue(),'14.5');assert.equal(await page.locator('#reps').inputValue(),'11');
       await page.locator('[data-action=previous]').click();await page.getByRole('heading',{name:'DEMO — przysiad',exact:true}).waitFor();assert.match(await page.locator('.set-list').innerText(),/62 kg/);
       await page.locator('[data-action=next]').click();await page.getByRole('heading',{name:'DEMO — wejście na stopień',exact:true}).waitFor();await page.locator('[data-action=next]').click();await page.getByRole('heading',{name:'DEMO — deska',exact:true}).waitFor();
       assert.equal(await page.locator('#reps').count(),0);await page.locator('#seconds').fill('45');await save(page);
@@ -56,7 +56,33 @@ async function save(page){await page.locator('#set-form button[type=submit]').cl
       await view(page,'settings');await page.locator('#import-file').setInputFiles({name:'backup.json',mimeType:'application/json',buffer:Buffer.from(backup)});await page.waitForFunction(()=>document.querySelector('#notice').textContent.includes('już zaimportowany'));assert.equal((await state(page)).workouts.length,2);
       const before=JSON.stringify(await state(page));await page.locator('#import-file').setInputFiles({name:'broken.json',mimeType:'application/json',buffer:Buffer.from('{broken')});await page.waitForFunction(()=>document.querySelector('#notice').textContent.includes('poprawnym JSON'));assert.equal(JSON.stringify(await state(page)),before);
       await context.setOffline(false);await page.reload();await page.locator('main h1').waitFor();assert.equal((await state(page)).workouts.length,2);assert.equal(posts.length,0,'Training data was sent to the server');assert.deepEqual(errors,[]);
+      // Start again: recall this profile's last actual weight, not its plan's 50 kg.
+      const original=(await state(page)).profiles[0],originalPlan=(await state(page)).plans[0];
+      await page.locator('#active-profile').selectOption(original.id);await page.getByRole('heading',{name:'Cześć, Kolarz DEMO',exact:true}).waitFor();
+      await view(page,`plan/${originalPlan.id}`);await page.locator('[data-form=start-workout] button').click();await page.locator('#set-form').waitFor();
+      assert.equal(await page.locator('#weight').inputValue(),'62');assert.equal(await page.locator('#reps').inputValue(),'9');
+      await page.locator('#weight').fill('0');await page.locator('#reps').fill('0');await save(page);assert.equal(await page.locator('#weight').inputValue(),'0');assert.equal(await page.locator('#reps').inputValue(),'0');await page.reload();await page.locator('#set-form').waitFor();assert.equal(await page.locator('#weight').inputValue(),'0');assert.equal(await page.locator('#reps').inputValue(),'0');
+      // A typed draft and an explicitly edited set take priority over the suggestion.
+      await page.locator('#weight').fill('77.25');await page.locator('#reps').fill('13');await page.locator('[data-action=next]').click();await page.getByRole('heading',{name:'DEMO — wejście na stopień',exact:true}).waitFor();
+      assert.equal(await page.locator('#weight').inputValue(),'14.5');assert.equal(await page.locator('#reps').inputValue(),'11');await page.locator('[data-action=previous]').click();await page.getByRole('heading',{name:'DEMO — przysiad',exact:true}).waitFor();assert.equal(await page.locator('#weight').inputValue(),'77.25');assert.equal(await page.locator('#reps').inputValue(),'13');
+      await page.locator('[data-action=edit-set]').click();await page.waitForFunction(()=>document.querySelector('#set-form h2').textContent.startsWith('Edytuj'));assert.equal(await page.locator('#weight').inputValue(),'0');assert.equal(await page.locator('#reps').inputValue(),'0');await page.locator('[data-action=cancel-edit]').click();await page.waitForFunction(()=>document.querySelector('#set-form h2').textContent.startsWith('Seria'));assert.equal(await page.locator('#weight').inputValue(),'77.25');assert.equal(await page.locator('#reps').inputValue(),'13');
+      // Same exercise, another profile: no leakage of remembered weights.
+      const fixture=await page.evaluate(async()=>{
+        const D=await import('./domain.mjs'),{mutate}=await import('./storage.mjs');
+        return (await mutate(s=>{
+          const p=D.addProfile(s,{name:'Drugi profil'});D.measure(s,'rms',p.id,{date:D.today(),exercise_id:'demo-ex-1',value:'100'});D.measure(s,'rms',p.id,{date:D.today(),exercise_id:'friel-ex-1',value:'100'});
+          const plan=D.createPlan(s,p.id,{name:'Test innej osoby',phase_id:'DEMO'});D.addPlanItems(s,plan.id,[{slot_id:'DEMO-1',exercise_id:'demo-ex-1'}]);
+          const us=D.createPlan(s,p.id,{name:'Test US',phase_id:'US'});D.addPlanItems(s,us.id,[{slot_id:'US-1',exercise_id:'friel-ex-1',chosen_sets:3}]);
+          return {plan:plan.id,us:us.id};
+        })).result;
+      });
+      await page.goto(origin+'#/plan/'+fixture.plan);await page.reload();await page.locator('[data-form=start-workout] button').click();await page.locator('#set-form').waitFor();assert.equal(await page.locator('#weight').inputValue(),'50');assert.equal(await page.locator('#reps').inputValue(),'8');
+      // US still assigns the endpoint loads; an unspecified middle stays blank.
+      await view(page,`plan/${fixture.us}`);await page.locator('[data-form=start-workout] button').click();await page.locator('#set-form').waitFor();assert.equal(await page.locator('#weight').inputValue(),'60');
+      await page.locator('#weight').fill('65.5');await page.locator('#reps').fill('7');await save(page);assert.equal(await page.locator('#weight').inputValue(),'');assert.equal(await page.locator('#reps').inputValue(),'7');await page.locator('#weight').fill('67.5');await save(page);assert.equal(await page.locator('#weight').inputValue(),'80');assert.equal(await page.locator('#reps').inputValue(),'7');
+      await noOverflow(page);assert.deepEqual(errors,[]);
       console.log(`PASS ${mobile?'phone 390×844':'desktop 1440×1000'}: controls, sessions, time, offline reload/finish, multi-tab commits, real charts, export/import/duplicates/invalid backup, no POST requests`);
+      console.log('PASS remembered weights and reps: next set, offline reload, next workout, zero, draft/edit priority, profile isolation, US endpoints');
       await context.close();
     }
     // A brand new device recovers its data entirely from a JSON file.

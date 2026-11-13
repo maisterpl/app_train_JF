@@ -125,15 +125,71 @@ export function calculateGoal(goal, body) {
   const range = `${goal.multiplier_min}–${goal.multiplier_max} × masa ciała na ${goal.target_reps} powtórzeń pod koniec fazy.`;
   return `${range} ${body==null?'Dodaj pomiar masy ciała.':`Dla ${formatNumber(body)} kg: ${formatNumber(Number(body)*Number(goal.multiplier_min))}–${formatNumber(Number(body)*Number(goal.multiplier_max))} kg.`} To cel końcowy, nie ciężar pierwszego treningu. ${goal.notes||''}`;
 }
+export const isCustomPlan = plan => plan.kind==='custom';
+export function planPhase(s,plan) {
+  return isCustomPlan(plan)?{code:'CUSTOM',name:'Plan własny',description:'Ćwiczenia i parametry wybrane przez użytkownika.',source:'Ustawienia własne użytkownika.'}:byId(s.phases,plan.phase_id);
+}
+export function addExercise(s,values) {
+  const name=text(values.name,'Nazwa ćwiczenia',160,true);
+  const key=value=>value.normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase('pl');
+  if(s.exercises.some(e=>key(e.name)===key(name))) throw Error('Ćwiczenie o tej nazwie jest już w bazie. Wybierz je z listy lub podaj inną nazwę.');
+  if(!['reps','time'].includes(values.mode)) throw Error('Wybierz sposób rejestrowania: powtórzenia albo czas.');
+  const ex={id:uid(),name,mode:values.mode,category:text(values.category||'','Kategoria',100),description:text(values.description||'','Opis i technika',20000),load_notation:text(values.load_notation||'','Sposób zapisu ciężaru',20000,true),is_custom:true};
+  s.exercises.push(ex);return ex;
+}
+export function createCustomPlan(s,profileId,values) {
+  byId(s.profiles,profileId);
+  const plan={id:uid(),profile_id:profileId,name:text(values.name,'Nazwa planu',160,true),kind:'custom',phase_id:null,items:[]};
+  s.plans.push(plan);return plan;
+}
+function checkCustomPrescription(p,exercise) {
+  if(p.sets_min==null) throw Error('Podaj proponowaną liczbę serii.');
+  if(exercise.mode==='time') {
+    if(p.seconds==null) throw Error('Podaj proponowany czas ćwiczenia w sekundach.');
+    if(p.reps_min!=null||p.reps_max!=null) throw Error('Ćwiczenie na czas nie może mieć zalecanych powtórzeń.');
+  } else {
+    if(p.reps_min==null) throw Error('Podaj proponowaną liczbę powtórzeń.');
+    if(p.seconds!=null) throw Error('Ćwiczenie na powtórzenia nie może mieć zalecanego czasu.');
+  }
+  if(p.rest_seconds==null) throw Error('Podaj czas odpoczynku (0 oznacza brak przerwy).');
+  if(!['rm','body','fixed','none'].includes(p.basis)) throw Error('Wybierz podstawę obciążenia.');
+  if(['rm','body'].includes(p.basis)&&p.percent_min==null) throw Error('Podaj procent wybranej podstawy obciążenia.');
+  if(p.basis==='fixed'&&p.fixed_weight==null) throw Error('Podaj stały ciężar.');
+  if(p.series_load_mode!=='uniform'||p.parameter_code||p.reps_original||p.chosen_sets!=null||p.middle_weight!=null) throw Error('Własny plan wymaga własnych parametrów, bez zaleceń fazy.');
+}
+function customPrescription(exercise,values) {
+  const p=prescription({...values,series_load_mode:'uniform',parameter_code:'',reps_original:'',chosen_sets:null,middle_weight:null,
+    reps_min:exercise.mode==='time'?null:values.reps_min,reps_max:exercise.mode==='time'?null:values.reps_max,seconds:exercise.mode==='time'?values.seconds:null,
+    percent_min:['rm','body'].includes(values.basis)?values.percent_min:null,percent_max:['rm','body'].includes(values.basis)?values.percent_max:null,fixed_weight:values.basis==='fixed'?values.fixed_weight:null});
+  checkCustomPrescription(p,exercise);return p;
+}
+export function addCustomPlanItem(s,planId,values) {
+  const plan=byId(s.plans,planId);if(!isCustomPlan(plan)) throw Error('Dodawanie dowolnych ćwiczeń jest dostępne we własnym planie.');
+  const exercise=byId(s.exercises,values.exercise_id),p=customPrescription(exercise,values);
+  const item={id:uid(),slot_id:null,exercise_id:exercise.id,prescription:p,overridden:true};
+  plan.items.push(item);return item;
+}
+export function deletePlan(s,planId) {
+  byId(s.plans,planId);
+  s.plans=s.plans.filter(p=>p.id!==planId);
+  // Session snapshots and results outlive their reusable source plan.
+  for(const w of s.workouts) if(w.plan_id===planId) w.plan_id=null;
+}
 export function createPlan(s, profileId, values) {
   byId(s.profiles,profileId); byId(s.phases,values.phase_id);
   const plan = {id:uid(),profile_id:profileId,name:text(values.name,'Nazwa planu',160,true),phase_id:values.phase_id,items:[]};
   s.plans.push(plan); return plan;
 }
 export function checkPlan(s, plan) {
-  const phase = byId(s.phases,plan.phase_id), hips = new Set(), slots = new Set();
+  if(plan.kind!=null&&!isCustomPlan(plan)) throw Error('Nieobsługiwany rodzaj planu.');
+  if(isCustomPlan(plan)&&plan.phase_id!=null) throw Error('Własny plan nie jest przypisany do fazy.');
+  const phase = planPhase(s,plan), hips = new Set(), slots = new Set();
   for (const item of plan.items) {
-    byId(s.exercises,item.exercise_id); prescription(item.prescription);
+    const exercise=byId(s.exercises,item.exercise_id),p=prescription(item.prescription);
+    if(isCustomPlan(plan)) {
+      if(item.slot_id!=null) throw Error('Własny plan nie może zmieniać pozycji fazy.');
+      checkCustomPrescription(p,exercise);
+    }
     if (item.slot_id) {
       const slot = byId(s.slots,item.slot_id);
       if (slot.phase_id!==plan.phase_id || !slot.allowed_exercise_ids.includes(item.exercise_id) || slots.has(slot.id)) throw Error('Niepoprawny wariant lub powtórzona pozycja fazy.');
@@ -147,6 +203,7 @@ export function checkPlan(s, plan) {
 }
 export function addPlanItems(s, planId, choices) {
   const plan=byId(s.plans,planId);
+  if(isCustomPlan(plan)) throw Error('Wybierz własne parametry ćwiczenia.');
   for (const choice of choices) {
     const slot=byId(s.slots,choice.slot_id);
     const p=prescription({...slot.prescription,chosen_sets:choice.chosen_sets??slot.prescription.chosen_sets});
@@ -156,7 +213,8 @@ export function addPlanItems(s, planId, choices) {
 }
 export function updateItem(s, planId, itemId, values) {
   const plan=byId(s.plans,planId), item=byId(plan.items,itemId);
-  item.exercise_id=values.exercise_id; item.prescription=prescription(values); item.overridden=true;
+  const p=isCustomPlan(plan)?customPrescription(byId(s.exercises,values.exercise_id),values):prescription(values);
+  item.exercise_id=values.exercise_id; item.prescription=p; item.overridden=true;
   // Original source text must not conceal a user's altered repetition range.
   if (String(values.reps_min??'')!==String(values.original_reps_min??item.prescription.reps_min) || values.clear_original) item.prescription.reps_original='';
   checkPlan(s,plan);
@@ -169,7 +227,7 @@ export function moveItem(s,planId,itemId,delta) {
 export function startWorkout(s,planId,day=today(),id=uid()) {
   const existing=s.workouts.find(w=>w.id===id);
   if (existing) { if (existing.plan_id!==planId) throw Error('Identyfikator już używany.'); return existing; }
-  const plan=byId(s.plans,planId), profile=byId(s.profiles,plan.profile_id), phase=byId(s.phases,plan.phase_id);
+  const plan=byId(s.plans,planId), profile=byId(s.profiles,plan.profile_id), phase=planPhase(s,plan);
   date(day); checkPlan(s,plan);
   if (!plan.items.length) throw Error('Dodaj co najmniej jedno ćwiczenie.');
   const body=latest(s.weights,profile.id,day);
@@ -245,7 +303,7 @@ export function validateState(s) {
   for(const slot of s.slots) { byId(s.phases,slot.phase_id);byId(s.exercises,slot.default_exercise_id);integer(slot.position,'Pozycja',1);text(slot.title,'Pozycja',160,true);if(!Array.isArray(slot.allowed_exercise_ids)||!slot.allowed_exercise_ids.length||slot.allowed_exercise_ids.length>1000) throw Error('Brak wariantów.'); for(const id of slot.allowed_exercise_ids) byId(s.exercises,id); if(!slot.allowed_exercise_ids.includes(slot.default_exercise_id)) throw Error('Brak domyślnego wariantu.');prescription(slot.prescription); }
   for(const goal of s.goals) { byId(s.phases,goal.phase_id);byId(s.exercises,goal.exercise_id);decimal(goal.multiplier_min,'Mnożnik',true);decimal(goal.multiplier_max,'Mnożnik',true);if(Number(goal.multiplier_max)<Number(goal.multiplier_min)) throw Error('Niepoprawny zakres celu.');integer(goal.target_reps,'Powtórzenia',1); }
   for(const kind of ['weights','rms']) for(const r of s[kind]) { byId(s.profiles,r.profile_id);date(r.date);decimal(r.value,'Pomiar',true);if(kind==='rms') { byId(s.exercises,r.exercise_id);if(r.source_weight!=null) decimal(r.source_weight,'Ciężar próby',true);if(r.source_reps!=null) integer(r.source_reps,'Powtórzenia próby',1); } }
-  for(const p of s.plans) { byId(s.profiles,p.profile_id);byId(s.phases,p.phase_id);text(p.name,'Plan',160,true);rows(p.items,1000);checkPlan(s,p); }
+  for(const p of s.plans) { byId(s.profiles,p.profile_id);text(p.name,'Plan',160,true);rows(p.items,1000);checkPlan(s,p); }
   for(const w of s.workouts) {
     byId(s.profiles,w.profile_id);if(w.plan_id!=null && byId(s.plans,w.plan_id).profile_id!==w.profile_id) throw Error('Plan innego profilu.');
     text(w.plan_name,'Nazwa planu',160,true);text(w.phase_name,'Faza',160,true);date(w.training_date);timestamp(w.started_at);decimal(w.rounding_step,'Krok',true);

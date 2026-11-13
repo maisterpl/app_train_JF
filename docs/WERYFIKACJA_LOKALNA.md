@@ -30,3 +30,19 @@ Nowe testy reguł obejmują import pełnego eksportu Django z zakończonym treni
 ## Ponowne uruchomienie
 
 Wykonaj `npm ci`, `npm test`, `npx playwright install chromium`. Uruchom `python -m http.server 8080 --bind 127.0.0.1 --directory web` i w drugim terminalu `npm run test:browser`. Test aktualizacji `npm run test:pwa-update` uruchamia własny tymczasowy serwer. Na Linux można wskazać systemowe Chromium zmienną `CHROMIUM_PATH`; bez niej używana jest przeglądarka pobrana przez Playwright.
+
+## Zapamiętywanie ciężaru — 13 listopada 2026
+
+`npm test`: 27/27 PASS. Rozszerzony `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`: PASS na komputerze 1440×1000 i emulowanym telefonie 390×844.
+
+Sprawdzono podpowiadanie ostatniego ciężaru po zapisie kolejnej serii, odświeżeniu offline i rozpoczęciu następnego treningu; wartość 0 kg; zachowanie ręcznego wpisu przy zmianie ćwiczenia; pierwszeństwo wartości edytowanej serii; rozdzielenie profili. Sprawdzono też US: pierwsza seria 60% 1RM, ostatnia 80%, brak automatycznego ciężaru środkowej serii. Nadal przechodzą scenariusze zapisu offline, zakończenia, wykresów i eksportu/importu. Wersja cache PWA została odświeżona.
+
+Rozszerzenie tego samego dnia: pola powtórzeń korzystają z ostatniej zapisanej serii lub poprzedniego treningu. `npm test`: 27/27 PASS. Testy przeglądarkowe na obu ekranach: PASS dla podpowiadania powtórzeń po zapisie i odświeżeniu offline, początku kolejnego treningu, wartości 0, pierwszeństwa ręcznego wpisu/edycji oraz oddzielnych profili. Sprawdzono także zapamiętywanie powtórzeń w US przy zachowaniu osobnych obciążeń serii. Ćwiczenia na czas nadal mają pole sekund. Cache PWA otrzymał nową wersję.
+
+## Własne plany, ćwiczenia i usuwanie — 13 listopada 2026
+
+- `npm test`: **35/35 PASS**. Nowe reguły obejmują dodawanie ćwiczeń i wykrywanie duplikatów, własne parametry, obliczenia z 1RM i masy ciała, ćwiczenia na czas, walidację wymaganych wartości i zakresów, zachowanie starych planów i migawek, eksport/import nowych danych oraz usuwanie planu z zachowaniem zakończonych i aktywnych sesji.
+- `CHROMIUM_PATH=/usr/bin/chromium npm run test:custom`: **PASS** na komputerze 1440×1000 i emulowanym telefonie 390×844. Formularze tworzenia i edycji, serie/powtórzenia/czas/odpoczynek/procenty/uwagi, własne ćwiczenia z listy i bezpośrednio z planu, duplikaty bez utraty pól, kolejność, trening offline, niezmienność historii, potwierdzenie i anulowanie usunięcia, wznowienie sesji po usunięciu jej planu, eksport/import i odświeżenie offline.
+- `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`: **PASS** na obu ekranach. Dotychczasowe fazy, podpowiadanie ciężaru/powtórzeń, historia, wykresy i wcześniejsze scenariusze offline nadal działają.
+
+Testy porównują istniejący plan, fazy i pozycje źródłowe przed i po dodawaniu własnych danych — pozostają bez zmian. Obejrzano zrzut własnego planu na ekranie telefonu. Nie odnotowano błędów JavaScript ani żądań POST z danymi treningowymi. Zachowano ograniczenia weryfikacji opisane wyżej: bez fizycznego telefonu, Safari i publicznego hostingu.

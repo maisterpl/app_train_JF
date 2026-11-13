@@ -21,12 +21,26 @@ Dodaj profil, pomiar masy ciała i swoje wartości 1RM. W **Plany** wybierz AA, 
 - Profile, ich edycja, masa ciała z datą, historia ręcznych i świadomie zatwierdzonych szacowanych 1RM.
 - Pięć faz z materiałów użytkownika, gotowe pozycje i warianty; parametry pomocnicze AA, oddzielne cele SM i ciężary poszczególnych serii US. Brakujące dane są oznaczone.
 - Wybór ćwiczeń do planu, kolejność góra/dół, usuwanie pozycji, edycja parametrów, przywrócenie zaleceń fazy, ponowne użycie planu.
+- Własne plany niezależne od faz: dowolne ćwiczenia z bazy, własne serie, powtórzenia/czas, odpoczynek, procent 1RM albo masy ciała, stały ciężar lub brak dodatkowego obciążenia, tempo i uwagi.
+- Dodawanie własnych ćwiczeń do lokalnej bazy, z kategorią, opisem techniki, sposobem rejestrowania i konwencją obciążenia. Istniejące plany nie są automatycznie uzupełniane ani modyfikowane.
 - Obciążenie z procentu 1RM albo masy ciała, zakresy, zaokrąglanie i ręczne zmiany. Obliczenia procentowe używają arytmetyki całkowitej, bez błędów ułamków zmiennoprzecinkowych.
 - Jedno ćwiczenie na ekranie, ciężar ±1/5/10 kg, powtórzenia/czas, zapis/edycja/usuwanie serii, notatki, odpoczynek, nawigacja, pomijanie, wznowienie i zakończenie.
+- Pola ciężaru i powtórzeń podpowiadają ostatnie zapisane wartości bieżącego ćwiczenia, a na początku kolejnego treningu — ostatni wynik tego ćwiczenia dla aktywnego profilu. Bez historii używają zaleceń planu. Ręczny wpis i edycja zapisanej serii mają pierwszeństwo; US zachowuje obciążenia zalecane dla poszczególnych serii.
 - Kopia parametrów, pomiarów i zaleceń w sesji. Późniejsze zmiany nie przeliczają historii. Zakończone sesje są zablokowane do edycji.
 - Historia ćwiczeń i prawdziwy wykres maksymalnego ciężaru z kontekstem powtórzeń; dla ćwiczeń na czas — sekundy. Punkt otwiera sesję, pod wykresem jest tabela.
 - Cała aplikacja offline po pierwszym przygotowaniu, także tworzenie planów i profili. Komunikat zapisu pojawia się po zatwierdzeniu transakcji IndexedDB. Zapisy z dwóch kart są szeregowane.
 - Eksport wszystkich danych lub aktywnego profilu do JSON, import z podglądem i walidacją, wyniki do CSV (Excel, separator `;`).
+
+## Własne plany, ćwiczenia i usuwanie planu
+
+1. W **Plany → Twoje plany → Utwórz własny plan** wpisz nazwę. Własny plan nie wymaga wyboru fazy Friela.
+2. Wybierz ćwiczenie z bazy. Podaj proponowaną liczbę serii, powtórzenia (albo sekundy dla ćwiczenia na czas), odpoczynek i podstawę obciążenia. Można podać zakresy, tempo i uwagi. Przy procentach podaj wartość procentową; aplikacja korzysta z pomiaru 1RM lub masy danego profilu. „Bez dodatkowego obciążenia” służy np. do deski bez ciężaru.
+3. Zapisz pozycję i dodaj kolejne. Przyciski góra/dół, edycja i usuwanie pozycji działają również we własnym planie. Zapisane sesje zachowują parametry z chwili rozpoczęcia.
+4. W **Ćwiczenia → Dodaj własne ćwiczenie** dodaj nazwę, kategorię, opis, sposób zapisu obciążenia i tryb powtórzenia/czas. Możesz też dodać ćwiczenie podczas przygotowywania własnego planu; po zapisie wrócisz do formularza z wybranym nowym ćwiczeniem.
+
+Biblioteka ćwiczeń jest wspólna dla profili na tym urządzeniu; plany, 1RM i wyniki pozostają przypisane do osoby. Dodawanie ćwiczeń i własnych planów nie zmienia gotowych faz ani istniejących planów. Dane działają offline i są objęte eksportem/importem JSON. Starsze kopie i istniejąca baza nadal są obsługiwane bez resetowania danych.
+
+W **Plany → Twoje plany** przy każdym planie znajduje się **Usuń**. Operacja wymaga potwierdzenia. Usuwa plan wielokrotnego użytku, zachowując zakończone treningi, wykresy oraz możliwość wznowienia sesji w toku. Gotowe zestawy faz w katalogu pozostają dostępne.
 
 ## Kopie zapasowe i przenoszenie
 
@@ -84,6 +98,8 @@ py -3.13 -m http.server 8080 --bind 127.0.0.1 --directory web
 npm run test:browser
 # Osobny test aktualizacji PWA i pracy w podkatalogu:
 npm run test:pwa-update
+# Test własnych planów, ćwiczeń i usuwania z zachowaniem historii:
+npm run test:custom
 ```
 
 Można podać własne Chromium: `$env:CHROMIUM_PATH = "C:\sciezka\do\chrome.exe"`. Na Linux: `CHROMIUM_PATH=/usr/bin/chromium npm run test:browser`. Wyniki i ograniczenia: [weryfikacja](docs/WERYFIKACJA_LOKALNA.md). Testy starego Django są oddzielne: `python manage.py test`.

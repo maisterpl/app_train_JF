@@ -64,7 +64,7 @@ export function importBackup(target,prepared) {
   const pick=(row,keys)=>Object.fromEntries(keys.map(k=>[k,row[k]??null]));
   // Reuse identical public definitions, so a copied profile can use its old RM
   // with newly created plans. Different conventions remain separate definitions.
-  const definitionKeys={exercises:['name','mode','category','description','load_notation'],phases:['code','name','description','is_demo','source','sessions_min','sessions_max','sessions_unlimited','weekly_min','weekly_max'],slots:['phase_id','position','title','category','default_exercise_id','allowed_exercise_ids','prescription'],goals:['phase_id','exercise_id','multiplier_min','multiplier_max','target_reps','source','notes']};
+  const definitionKeys={exercises:['name','mode','category','description','load_notation','is_custom'],phases:['code','name','description','is_demo','source','sessions_min','sessions_max','sessions_unlimited','weekly_min','weekly_max'],slots:['phase_id','position','title','category','default_exercise_id','allowed_exercise_ids','prescription'],goals:['phase_id','exercise_id','multiplier_min','multiplier_max','target_reps','source','notes']};
   const reuse=(key,rows)=>{
     const signature=r=>stable({...pick(r,definitionKeys[key]),...(key==='slots'?{prescription:prescription(r.prescription)}:{})});
     const existing=new Map(target[key].map(r=>[signature(r),r.id]));
