@@ -1,0 +1,11 @@
+{
+  "version": "2026-11-19.2",
+  "changes": [
+    "Usuwanie treningów z potwierdzeniem, wraz z seriami i wynikami na wykresach.",
+    "Licznik całego czasu treningu, zachowany po odświeżeniu.",
+    "Zdjęcia ćwiczeń dostępne offline i w kopiach JSON.",
+    "Wyjaśnienie zaokrąglania obciążenia w profilu.",
+    "Instrukcja instalacji aplikacji na Androidzie i iPhonie.",
+    "Okno z nowościami i powiadomieniem o dostępnej aktualizacji."
+  ]
+}

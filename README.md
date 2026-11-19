@@ -138,3 +138,9 @@ Podczas treningu licznik pokazuje cały czas od rozpoczęcia, razem z przerwami.
 Przy tworzeniu i edycji ćwiczenia można dodać zdjęcie JPEG, PNG lub WebP (plik do 20 MB). Aplikacja zmniejsza zdjęcie, zapisuje je lokalnie i obejmuje eksportem/importem JSON. Podczas treningu rozwiń **Zdjęcie ćwiczenia**. Pokazywane jest aktualne zdjęcie z bazy ćwiczeń, także w rozpoczętej wcześniej sesji. Limit całej kopii JSON nadal wynosi 20 MB.
 
 Za Ustawieniami znajduje się **Zainstaluj aplikację** z instrukcjami dla Androida i iPhone'a oraz przygotowania pracy offline. Instalacja nie zastępuje eksportu danych.
+
+## Informacje o aktualizacjach
+
+Po otwarciu aplikacji okno pokazuje zmiany bieżącej wersji. Zamknięcie bez zaznaczenia pola powoduje ponowne wyświetlenie przy następnym otwarciu lub odświeżeniu. Pole **Nie pokazuj ponownie dla tej wersji** zapamiętuje wybór w tej przeglądarce. Nowa wersja ma osobne powiadomienie. Gdy service worker pobierze aktualizację, okno pokaże jej zmiany i przycisk przejścia do Ustawień. Aktualizacja wymaga świadomego zastosowania po zapisaniu serii.
+
+Przy kolejnym wydaniu zaktualizuj wersję i listę zmian w web/release.json, a następnie uruchom skrypt scripts/build_local_release.py. Starsza wersja aplikacji bez obsługi tych powiadomień pokaże okno dopiero po zastosowaniu pierwszej aktualizacji z tą funkcją.

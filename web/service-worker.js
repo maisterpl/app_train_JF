@@ -1,7 +1,7 @@
-const RELEASE = 'f31416f70944e55e';
+const RELEASE = '83e8bb13f8fc10fc';
 const PREFIX='sila-local-shell-';
 const CACHE=PREFIX+RELEASE;
-const ASSETS=['./','./index.html','./style.css','./app.mjs','./domain.mjs','./storage.mjs','./backup.mjs','./catalog.json','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const ASSETS=['./','./index.html','./style.css','./app.mjs','./domain.mjs','./storage.mjs','./backup.mjs','./catalog.json','./release.json','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   // Fail the install if any required file is missing. Do not activate an
@@ -12,7 +12,7 @@ self.addEventListener('activate',event=>event.waitUntil((async()=>{
   for(const name of await caches.keys()) if(name.startsWith(PREFIX)&&name!==CACHE) await caches.delete(name);
   await self.clients.claim();
 })()));
-self.addEventListener('message',event=>{if(event.data==='activate') self.skipWaiting();});
+self.addEventListener('message',event=>{if(event.data==='activate') self.skipWaiting();if(event.data==='release-info'&&event.ports[0])event.waitUntil((async()=>{try{const cache=await caches.open(CACHE),response=await cache.match('./release.json');event.ports[0].postMessage(response?await response.json():null);}catch{event.ports[0].postMessage(null);}})());});
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET'||new URL(event.request.url).origin!==self.location.origin) return;
   event.respondWith((async()=>{

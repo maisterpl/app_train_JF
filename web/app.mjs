@@ -334,6 +334,32 @@ window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();ins
 const connection=()=>$('#connection-status').textContent=`${navigator.onLine?'Online':'Offline'} · dane na urządzeniu`;
 window.addEventListener('online',connection);window.addEventListener('offline',connection);connection();
 setInterval(tick,1000);
+let releaseDialog;
+const shownReleases=new Set();
+function showRelease(info,available=false) {
+  if(!info||typeof info.version!=='string'||!Array.isArray(info.changes))return;
+  const key=`sila-release-${available?'available':'installed'}-${info.version}`;
+  try {if(localStorage.getItem(key)==='hidden')return;}catch{}
+  if(shownReleases.has(key))return;
+  shownReleases.add(key);
+  releaseDialog?.close();releaseDialog?.remove();
+  const dialog=document.createElement('dialog');releaseDialog=dialog;dialog.className='release-dialog';
+  dialog.setAttribute('aria-labelledby','release-title');
+  dialog.innerHTML=`<h2 id="release-title">${available?'Dostępna jest nowa aktualizacja':'Co nowego w aplikacji'}</h2><p>Wersja ${esc(info.version)}${available?' jest gotowa do zainstalowania.':' jest już uruchomiona.'}</p><ul>${info.changes.map(item=>`<li>${esc(item)}</li>`).join('')}</ul>${available?'<p>Zapisz serię przed aktualizacją. Przejdź do Ustawień, aby zastosować nową wersję.</p>':''}<label class="release-choice"><input type="checkbox" id="release-hide"> Nie pokazuj ponownie dla tej wersji</label><div class="actions"><button type="button" id="release-close">${available?'Później':'Zamknij'}</button>${available?'<button type="button" id="release-settings" class="secondary">Przejdź do aktualizacji</button>':''}</div>`;
+  document.body.append(dialog);
+  const hide=()=>{if(dialog.querySelector('#release-hide').checked){try{localStorage.setItem(key,'hidden');}catch{notice('Nie udało się zapamiętać wyboru w tej przeglądarce.',true);}}dialog.close();};
+  dialog.querySelector('#release-close').addEventListener('click',hide);
+  dialog.querySelector('#release-settings')?.addEventListener('click',()=>{hide();go('settings');});
+  dialog.addEventListener('cancel',event=>{event.preventDefault();hide();});
+  dialog.showModal();
+}
+function announceWaiting(worker) {
+  if(!worker)return;
+  const channel=new MessageChannel();
+  const timeout=setTimeout(()=>channel.port1.close(),5000);
+  channel.port1.onmessage=event=>{clearTimeout(timeout);channel.port1.close();showRelease(event.data,true);};
+  worker.postMessage('release-info',[channel.port2]);
+}
 async function setupWorker() {
   const status=$('#offline-status');
   if(!('serviceWorker' in navigator)||!isSecureContext){status.textContent='Offline wymaga HTTPS / localhost';return;}
@@ -341,15 +367,17 @@ async function setupWorker() {
     let controlled=Boolean(navigator.serviceWorker.controller);
     navigator.serviceWorker.addEventListener('controllerchange',()=>{if(controlled)location.reload();else {controlled=true;status.textContent='Gotowa offline';}});
     registration=await navigator.serviceWorker.register('./service-worker.js',{scope:'./',updateViaCache:'none'});
-    const ready=()=>{status.textContent='Gotowa offline';if(registration.waiting){status.textContent='Nowa wersja czeka w Ustawieniach';if($('[data-action=apply-update]'))$('[data-action=apply-update]').hidden=false;}};
+    const ready=()=>{status.textContent='Gotowa offline';if(registration.waiting){announceWaiting(registration.waiting);status.textContent='Nowa wersja czeka w Ustawieniach';if($('[data-action=apply-update]'))$('[data-action=apply-update]').hidden=false;}};
     navigator.serviceWorker.ready.then(ready);
-    registration.addEventListener('updatefound',()=>{const worker=registration.installing;worker.addEventListener('statechange',()=>{if(worker.state==='installed')ready();if(worker.state==='redundant')status.textContent='Błąd przygotowania offline — otwórz ponownie online';});});
+    registration.addEventListener('updatefound',()=>{const worker=registration.installing;worker.addEventListener('statechange',()=>{if(worker.state==='installed'){ready();if(navigator.serviceWorker.controller)announceWaiting(worker);}if(worker.state==='redundant')status.textContent='Błąd przygotowania offline — otwórz ponownie online';});});
     if(registration.active)ready();
   } catch {status.textContent='Nie udało się przygotować offline';}
 }
 try {
   const response=await fetch('./catalog.json');if(!response.ok)throw Error('Nie można wczytać katalogu ćwiczeń.');
-  state=await initialize(await response.json());await render();setupWorker();
+  state=await initialize(await response.json());await render();
+  try{const release=await fetch('./release.json');if(release.ok)showRelease(await release.json());}catch{}
+  setupWorker();
 } catch(error) {
   app.innerHTML=`<section class="card"><h1>Nie można otworzyć aplikacji</h1><p>${esc(error.message)}</p><p>Włącz zapis danych witryn i otwórz aplikację przez HTTPS lub localhost. Pierwsze uruchomienie wymaga połączenia. Nie czyść danych przeglądarki, jeśli masz w niej niezapisany eksport treningów.</p><button type="button" data-action="reload">Spróbuj ponownie</button></section>`;
   $('[data-action=reload]')?.addEventListener('click',()=>location.reload());

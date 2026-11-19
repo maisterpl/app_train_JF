@@ -6,3 +6,5 @@
 .exercise-structure{border:0;margin:0;padding:0;min-width:0}.exercise-structure:disabled input,.exercise-structure:disabled select,.exercise-structure:disabled textarea{background:#f0f4ed;color:#52665d}
 
 .exercise-photo img{display:block;max-width:100%;max-height:65vh;object-fit:contain;margin-top:1rem;border-radius:12px}.workout-clock{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:1rem}.workout-clock output{font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums}
+
+.release-dialog{width:min(560px,calc(100% - 2rem));max-height:85dvh;overflow:auto;box-sizing:border-box;border:1px solid #b7c8be;border-radius:18px;padding:1.5rem;color:#153b31;background:#fff}.release-dialog::backdrop{background:#10251dcc}.release-dialog li{margin-bottom:.65rem}.release-choice{display:flex;align-items:flex-start;gap:.6rem;margin:1.25rem 0}.release-choice input{width:auto;flex-shrink:0;margin-top:.25rem}
