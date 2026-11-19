@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#153b31">
   <meta name="description" content="Trening siłowy dla kolarza. Plany, treningi i progres zapisane na Twoim urządzeniu.">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="./icon-192.png">
@@ -19,7 +19,7 @@
   </header>
   <div class="layout">
     <aside><nav aria-label="Główna nawigacja">
-      <a href="#/start">Start</a><a href="#/plans">Plany</a><a href="#/history">Treningi</a><a href="#/exercises">Ćwiczenia</a><a href="#/profile">Profil</a><a href="#/settings">Ustawienia</a>
+      <a href="#/start">Start</a><a href="#/plans">Plany</a><a href="#/history">Treningi</a><a href="#/exercises">Ćwiczenia</a><a href="#/profile">Profil</a><a href="#/settings">Ustawienia</a><a href="#/installation">Zainstaluj aplikację</a>
     </nav><div class="local-note">Twoje tempo.<br>Twoje dane.<small>Zapis lokalny · bez konta</small></div></aside>
     <div class="workspace"><div class="profile-bar"><label for="active-profile">Aktywny profil</label><select id="active-profile" aria-label="Aktywny profil"></select><a href="#/profiles">Zmień / dodaj</a></div>
       <div id="notice" role="status" aria-live="polite" hidden></div>

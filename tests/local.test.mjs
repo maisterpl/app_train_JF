@@ -231,3 +231,21 @@ test('empty optional video does not duplicate exercises or disconnect RM during 
   const s=demo(),target=D.newState(catalog);D.updateExercise(s,'demo-ex-1',{video_url:''});
   B.importBackup(target,await B.parseBackup(JSON.stringify(B.makeBackup(s))));assert.equal(target.exercises.length,catalog.exercises.length);assert.equal(target.rms[0].exercise_id,'demo-ex-1');
 });
+
+
+test('delete workout removes series and progress, keeps plan and other sessions',()=>{
+  const {s,w,ex}=session();save(s,w,ex);D.finish(s,w.id);const other=D.startWorkout(s,s.plans[0].id);
+  assert.equal(D.exerciseProgress(s,w.profile_id,ex.snapshot.exercise_id).length,1);
+  D.deleteWorkout(s,w.id);assert.equal(s.workouts.length,1);assert.equal(s.workouts[0].id,other.id);
+  assert.equal(D.exerciseProgress(s,w.profile_id,ex.snapshot.exercise_id).length,0);assert.equal(s.plans.length,1);D.validateState(s);
+  D.addProfile(s,{name:'Inny',rounding_step:'1'});assert.throws(()=>D.deleteWorkout(s,other.id));
+});
+test('photos survive backup, remain distinct on import and can be removed',async()=>{
+  const s=demo(),ex=s.exercises[0],photo='data:image/jpeg;base64,/9j/AAAA';
+  D.updateExercise(s,ex.id,{photo});D.validateState(s);
+  const prepared=await B.parseBackup(JSON.stringify(B.makeBackup(s))),target=demo();
+  B.importBackup(target,prepared);assert(target.exercises.some(e=>e.photo===photo));
+  assert.equal(target.exercises.length,s.exercises.length+1);
+  D.updateExercise(s,ex.id,{photo:''});assert.equal(ex.photo,'');
+  for(const bad of ['data:image/svg+xml;base64,AAAA','https://example.com/a.jpg','data:image/jpeg;base64,'+'A'.repeat(350000)])assert.throws(()=>D.updateExercise(s,ex.id,{photo:bad}));
+});

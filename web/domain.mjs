@@ -146,13 +146,23 @@ export function exerciseStructureLocked(s,exerciseId) {
   const ex=byId(s.exercises,exerciseId);
   return ex.is_custom!==true||s.plans.some(p=>p.items.some(i=>i.exercise_id===exerciseId))||s.rms.some(r=>r.exercise_id===exerciseId)||s.workouts.some(w=>w.exercises.some(e=>e.snapshot.exercise_id===exerciseId))||s.slots.some(r=>r.allowed_exercise_ids.includes(exerciseId)||r.default_exercise_id===exerciseId)||s.goals.some(r=>r.exercise_id===exerciseId);
 }
+export function exercisePhoto(value='') {
+  if(value==null||value==='')return '';
+  if(typeof value!=='string'||value.length>350000||!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(value))throw Error('Niepoprawne zdjęcie ćwiczenia (maks. 250 KB, JPEG).');
+  return value;
+}
+export function deleteWorkout(s,id) {
+  const w=byId(s.workouts,id);
+  if(w.profile_id!==s.activeProfileId)throw Error('Wybierz profil właściciela treningu.');
+  s.workouts=s.workouts.filter(row=>row.id!==id);
+}
 function exerciseFields(s,values,existing=null) {
   const name=text(values.name??existing?.name,'Nazwa ćwiczenia',160,true);
   const key=value=>value.normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase('pl');
   if(s.exercises.some(e=>e.id!==existing?.id&&!e.archived&&key(e.name)===key(name))&&(!existing?.archived||key(name)!==key(existing.name))) throw Error('Ćwiczenie o tej nazwie jest już w bazie. Wybierz je z listy lub podaj inną nazwę.');
   const mode=values.mode??existing?.mode;
   if(!['reps','time'].includes(mode)) throw Error('Wybierz sposób rejestrowania: powtórzenia albo czas.');
-  return {name,mode,category:text(values.category??existing?.category??'','Kategoria',100),description:text(values.description??existing?.description??'','Opis i technika',20000),load_notation:text(values.load_notation??existing?.load_notation??'','Sposób zapisu ciężaru',20000,true),video_url:youtubeURL(values.video_url??existing?.video_url??'')};
+  return {name,mode,category:text(values.category??existing?.category??'','Kategoria',100),description:text(values.description??existing?.description??'','Opis i technika',20000),load_notation:text(values.load_notation??existing?.load_notation??'','Sposób zapisu ciężaru',20000,true),photo:exercisePhoto(values.photo??existing?.photo??''),video_url:youtubeURL(values.video_url??existing?.video_url??'')};
 }
 export function addExercise(s,values) {
   const ex={id:uid(),...exerciseFields(s,values),is_custom:true};
@@ -333,7 +343,7 @@ export function validateState(s) {
   for(const k of keys) rows(s[k]);
   for(const p of s.profiles) { text(p.name,'Profil',100,true);text(p.notes||'','Uwagi',10000);decimal(p.rounding_step,'Krok',true); }
   if(s.activeProfileId!=null) byId(s.profiles,s.activeProfileId);
-  for(const ex of s.exercises) { for(const flag of ['is_custom','archived']) if(ex[flag]!=null&&typeof ex[flag]!=='boolean')throw Error('Niepoprawny status ćwiczenia.');if(ex.archived&&ex.is_custom!==true)throw Error('Ćwiczenia standardowego nie można usuwać z bazy.');youtubeURL(ex.video_url??'');text(ex.name,'Ćwiczenie',160,true); if(!['reps','time'].includes(ex.mode)) throw Error('Niepoprawny tryb ćwiczenia.'); text(ex.description||'','Opis',20000);text(ex.category||'','Kategoria',100);text(ex.load_notation||'','Obciążenie',20000); }
+  for(const ex of s.exercises) { for(const flag of ['is_custom','archived']) if(ex[flag]!=null&&typeof ex[flag]!=='boolean')throw Error('Niepoprawny status ćwiczenia.');if(ex.archived&&ex.is_custom!==true)throw Error('Ćwiczenia standardowego nie można usuwać z bazy.');exercisePhoto(ex.photo);youtubeURL(ex.video_url??'');text(ex.name,'Ćwiczenie',160,true); if(!['reps','time'].includes(ex.mode)) throw Error('Niepoprawny tryb ćwiczenia.'); text(ex.description||'','Opis',20000);text(ex.category||'','Kategoria',100);text(ex.load_notation||'','Obciążenie',20000); }
   for(const ph of s.phases) { text(ph.name,'Faza',160,true);text(ph.description||'','Opis',20000);text(ph.source||'','Źródło',20000); }
   for(const slot of s.slots) { byId(s.phases,slot.phase_id);byId(s.exercises,slot.default_exercise_id);integer(slot.position,'Pozycja',1);text(slot.title,'Pozycja',160,true);if(!Array.isArray(slot.allowed_exercise_ids)||!slot.allowed_exercise_ids.length||slot.allowed_exercise_ids.length>1000) throw Error('Brak wariantów.'); for(const id of slot.allowed_exercise_ids) byId(s.exercises,id); if(!slot.allowed_exercise_ids.includes(slot.default_exercise_id)) throw Error('Brak domyślnego wariantu.');prescription(slot.prescription); }
   for(const goal of s.goals) { byId(s.phases,goal.phase_id);byId(s.exercises,goal.exercise_id);decimal(goal.multiplier_min,'Mnożnik',true);decimal(goal.multiplier_max,'Mnożnik',true);if(Number(goal.multiplier_max)<Number(goal.multiplier_min)) throw Error('Niepoprawny zakres celu.');integer(goal.target_reps,'Powtórzenia',1); }

@@ -127,3 +127,14 @@ npm test
 Drugi skrypt tworzy ikony PNG i wersję cache zależną od zawartości plików. Opublikuj gotowy folder `web/`. Nie zmieniaj schematu danych bez przygotowania migracji/importera; aplikacja nie resetuje automatycznie nieobsługiwanej bazy.
 
 [Źródła i brakujące materiały Friela](docs/FRIEL_DANE.md): pełna tabela 13.3 z przypisami, przypis AA ze strony 236, mnożniki SM dla stepu i wypychania nogami, ewentualne źródłowe obciążenie środkowej serii US, opisy techniki/konwencje ciężaru oraz dokładne wydanie książki. Nie wymyślono brakujących zaleceń.
+
+
+## Zdjęcia, czas treningu i instalacja
+
+W Treningach przycisk **Usuń trening** wymaga potwierdzenia i usuwa sesję wraz z seriami z historii i wykresów; plan pozostaje zachowany. Dotyczy także sesji w toku.
+
+Podczas treningu licznik pokazuje cały czas od rozpoczęcia, razem z przerwami. Odświeżenie lub zamknięcie aplikacji nie zeruje czasu. Zakończenie treningu zatrzymuje pomiar.
+
+Przy tworzeniu i edycji ćwiczenia można dodać zdjęcie JPEG, PNG lub WebP (plik do 20 MB). Aplikacja zmniejsza zdjęcie, zapisuje je lokalnie i obejmuje eksportem/importem JSON. Podczas treningu rozwiń **Zdjęcie ćwiczenia**. Pokazywane jest aktualne zdjęcie z bazy ćwiczeń, także w rozpoczętej wcześniej sesji. Limit całej kopii JSON nadal wynosi 20 MB.
+
+Za Ustawieniami znajduje się **Zainstaluj aplikację** z instrukcjami dla Androida i iPhone'a oraz przygotowania pracy offline. Instalacja nie zastępuje eksportu danych.
