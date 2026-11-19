@@ -2,11 +2,14 @@
   "name": "sila-na-trase-browser-checks",
   "private": true,
   "scripts": {
-    "test": "node tests/local.test.mjs",
+    "test": "node --test tests/*.test.mjs",
     "test:browser": "node scripts/browser_local.cjs",
     "test:pwa-update": "node scripts/browser_local_update.cjs",
     "test:custom": "node scripts/browser_custom.cjs",
-    "test:django-browser": "node scripts/browser_smoke.cjs"
+    "test:django-browser": "node scripts/browser_smoke.cjs",
+    "test:intervals": "node scripts/browser_intervals.cjs"
   },
-  "devDependencies": {"playwright": "1.62.1"}
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
 }

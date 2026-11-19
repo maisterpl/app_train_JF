@@ -2,7 +2,7 @@ import {clone,newState,validateState,uid,prescription,youtubeURL} from './domain
 
 export const MAX_BACKUP_BYTES=20*1024*1024;
 export function makeBackup(state,profileId=null) {
-  const data=clone(state);
+  const data=clone(state);delete data.intervalExports;
   if(profileId) {
     data.profiles=data.profiles.filter(p=>p.id===profileId);
     for(const key of ['weights','rms','plans','workouts']) data[key]=data[key].filter(r=>r.profile_id===profileId);

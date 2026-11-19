@@ -1,11 +1,8 @@
 {
-  "version": "2026-11-19.2",
+  "version": "2026-11-19.4",
   "changes": [
-    "Usuwanie treningów z potwierdzeniem, wraz z seriami i wynikami na wykresach.",
-    "Licznik całego czasu treningu, zachowany po odświeżeniu.",
-    "Zdjęcia ćwiczeń dostępne offline i w kopiach JSON.",
-    "Wyjaśnienie zaokrąglania obciążenia w profilu.",
-    "Instrukcja instalacji aplikacji na Androidzie i iPhonie.",
-    "Okno z nowościami i powiadomieniem o dostępnej aktualizacji."
+    "Eksport zakończonego treningu do Intervals.icu jako notatka, nowy trening siłowy lub komentarz do istniejącej aktywności.",
+    "Opcjonalne zapamiętanie klucza Intervals.icu na urządzeniu, osobno dla profilu, oraz link do ustawień klucza API.",
+    "Podgląd podsumowania, potwierdzenie konta oraz ochrona przed ponownym wysłaniem."
   ]
 }

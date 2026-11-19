@@ -1,7 +1,7 @@
-const RELEASE = '83e8bb13f8fc10fc';
+const RELEASE = '0573a2939b89e687';
 const PREFIX='sila-local-shell-';
 const CACHE=PREFIX+RELEASE;
-const ASSETS=['./','./index.html','./style.css','./app.mjs','./domain.mjs','./storage.mjs','./backup.mjs','./catalog.json','./release.json','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const ASSETS=['./','./index.html','./style.css','./app.mjs','./domain.mjs','./storage.mjs','./backup.mjs','./intervals.mjs','./intervals-account.mjs','./catalog.json','./release.json','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{
   const cache=await caches.open(CACHE);
   // Fail the install if any required file is missing. Do not activate an

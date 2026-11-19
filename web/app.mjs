@@ -1,3 +1,5 @@
+import * as ICA from './intervals-account.mjs';
+import * as ICU from './intervals.mjs';
 import * as D from './domain.mjs';
 import {initialize,mutate,readState,changes} from './storage.mjs';
 import {makeBackup,parseBackup,importBackup,resultsCSV,MAX_BACKUP_BYTES} from './backup.mjs';
@@ -139,7 +141,7 @@ function workoutView(id) {
   const w=owns(D.byId(state.workouts,id));
   if(w.status==='completed') {
     const minutes=Math.max(0,Math.round((Date.parse(w.finished_at)-Date.parse(w.started_at))/60000));
-    return head('Trening zakończony',`${w.plan_name} · ${w.training_date} · ${minutes} min`,'history')+`<p class="info">Sesja zapisana na urządzeniu. Historyczne parametry i wyniki pozostają zachowane.</p>${w.exercises.map(e=>`<section class="card"><h2>${esc(e.snapshot.name)}</h2>${workoutVideo(e.snapshot)}<small>${e.skipped?'Oznaczone jako pominięte':'Wykonane serie: '+e.sets.length}</small><ul class="set-list">${e.sets.map(r=>`<li>Seria ${r.number}: <strong>${setResult(r,e.snapshot.mode==='time')}</strong></li>`).join('')||'<li>Brak zapisanych serii.</li>'}</ul>${link(`exercise/${e.snapshot.exercise_id}`,'Historia i wykres','')}<details><summary>Parametry zapisane przy rozpoczęciu</summary>${prescriptionSummary(e.snapshot)}<p>${esc(e.snapshot.load.explanation)}</p><p>1RM: ${n(e.snapshot.rm)} kg · masa ciała: ${n(e.snapshot.body_weight)} kg</p></details></section>`).join('')}<div class="actions">${link('plans','Wybierz kolejny trening','button')}${link('settings','Eksportuj dane')}</div>`;
+    return head('Trening zakończony',`${w.plan_name} · ${w.training_date} · ${minutes} min`,'history')+`<p class="info">Sesja zapisana na urządzeniu. Historyczne parametry i wyniki pozostają zachowane.</p>${w.exercises.map(e=>`<section class="card"><h2>${esc(e.snapshot.name)}</h2>${workoutVideo(e.snapshot)}<small>${e.skipped?'Oznaczone jako pominięte':'Wykonane serie: '+e.sets.length}</small><ul class="set-list">${e.sets.map(r=>`<li>Seria ${r.number}: <strong>${setResult(r,e.snapshot.mode==='time')}</strong></li>`).join('')||'<li>Brak zapisanych serii.</li>'}</ul>${link(`exercise/${e.snapshot.exercise_id}`,'Historia i wykres','')}<details><summary>Parametry zapisane przy rozpoczęciu</summary>${prescriptionSummary(e.snapshot)}<p>${esc(e.snapshot.load.explanation)}</p><p>1RM: ${n(e.snapshot.rm)} kg · masa ciała: ${n(e.snapshot.body_weight)} kg</p></details></section>`).join('')}<div class="actions">${link(`interval-export/${w.id}`,'Wyślij do Intervals.icu','button')}${link('plans','Wybierz kolejny trening','button')}${link('settings','Eksportuj dane')}</div>`;
   }
   const e=w.exercises[w.current_position],p=e.snapshot,time=p.mode==='time',loadRow=p.load.series_loads?.[Math.min(e.sets.length,(p.load.series_loads?.length||1)-1)]||p.load;
   if(editingSet && !e.sets.some(r=>r.id===editingSet)) editingSet=null;
@@ -167,8 +169,36 @@ function exerciseView(id) {
   const history=state.workouts.filter(w=>w.profile_id===profile().id && w.exercises.some(e=>e.snapshot.exercise_id===id&&e.sets.length)).sort((a,b)=>b.training_date.localeCompare(a.training_date)||b.started_at.localeCompare(a.started_at));
   return head(ex.name,ex.category,'exercises')+`${ex.is_custom?'<p><span class="badge">Ćwiczenie własne</span></p>':''}${ex.archived?'<p class="info">Ćwiczenie usunięto z aktywnej bazy. Jego dane są zachowane dla istniejących planów i historii.</p>':''}<div class="actions">${link(`exercise/${ex.id}/edit`,'Edytuj ćwiczenie')}${ex.is_custom===true&&!ex.archived?button('delete-exercise','Usuń ćwiczenie',`data-id="${esc(ex.id)}"`,'danger'):''}</div><section class="card">${videoLink(ex.video_url)}${photoView(ex)}<p>${esc(ex.description||'Brak danych')}</p><p><strong>Zapis obciążenia:</strong> ${esc(ex.load_notation||'Brak danych')}</p></section><section class="card" id="progress-chart"><h2>${time?'Progres czasu':'Progres maksymalnego ciężaru'}</h2><p class="muted">Jeden najlepszy wynik z każdej ukończonej sesji aktywnego profilu.${time?'':' Liczba powtórzeń daje kontekst obciążenia.'}</p>${progressChart(points,time)}</section>${!time?`<div class="grid"><form class="card" data-form="rm">${hidden('exercise_id',id)}<h2>Zapisz 1RM</h2><p>Serie treningowe nie zmieniają tej wartości automatycznie.</p>${field('date','Data',D.today(),'required','date')}${field('value','1RM (kg)','','required inputmode="decimal"')}<button type="submit">Zapisz ręczny 1RM</button></form><form class="card" data-form="estimate">${hidden('exercise_id',id)}<h2>Szacowanie 1RM · tabela 13.7</h2>${field('source_weight','Ciężar próby (kg)','','required inputmode="decimal"')}${select('source_reps','Powtórzenia próby',[4,5,6,7,8,9,10].map(v=>[v,v]),6)}${field('date','Data próby',D.today(),'required','date')}<button type="submit" class="secondary">Oblicz i sprawdź</button><div id="estimate-result"></div></form></div><section class="card"><h2>Historia 1RM</h2><ul class="list">${rms.map(r=>`<li>${esc(r.date)} · <strong>${n(r.value)} kg</strong> · ${r.is_estimated?'szacowany (próba '+n(r.source_weight)+' kg × '+r.source_reps+')':'wpis ręczny'}</li>`).join('')||'<li>Brak zapisanych wartości 1RM.</li>'}</ul></section>`:''}<section class="card"><h2>Historia ćwiczenia</h2>${history.length?history.map(w=>`<div class="phase-option"><h3>${esc(w.training_date)} · ${esc(w.plan_name)}</h3><small>${w.status==='active'?'W trakcie':'Zakończony'}</small><ul class="list">${w.exercises.filter(e=>e.snapshot.exercise_id===id).flatMap(e=>e.sets.map(r=>`<li>${r.number}. ${setResult(r,e.snapshot.mode==='time')}</li>`)).join('')}</ul>${link(`workout/${w.id}`,'Otwórz sesję','')}</div>`).join(''):'<p>To ćwiczenie nie ma jeszcze zapisanej historii.</p>'}</section>`;
 }
+// Saved credentials use separate device storage, never the training state or backups.
+const intervalAccounts=new Map();
+function restoreIntervalAccounts() {
+  for(const p of state.profiles){try{const saved=ICA.loadAccount(p.id);if(saved)intervalAccounts.set(p.id,{id:saved.id,name:saved.name,api:ICU.client(saved.key),remembered:true});}catch{}}
+}
+window.addEventListener('storage',event=>{
+  if(!state||event.key!==null&&!event.key.startsWith(ICA.KEY_PREFIX))return;
+  for(const [pid,account] of intervalAccounts)if(account.remembered&&(event.key===null||event.key===ICA.KEY_PREFIX+pid))intervalAccounts.delete(pid);
+  restoreIntervalAccounts();if(['settings','interval-export'].includes(route()[0]))render();
+});
+let intervalChoices=[];
+function intervalConnectionView() {
+  const account=profile()&&intervalAccounts.get(profile().id);
+  return `<section class="card"><h2>Intervals.icu</h2>${profile()?`<p>Połączenie dotyczy profilu <strong>${esc(profile().name)}</strong> na tym urządzeniu.</p>${account?`<p>Połączono: <strong>${esc(account.name)}</strong> (${esc(account.id)}).</p><p>${account.remembered?'Klucz zapamiętany na tym urządzeniu. Połączenie będzie dostępne po ponownym otwarciu aplikacji.':'Połączenie tylko w tej karcie, do odświeżenia lub zamknięcia.'}</p>${button('icu-disconnect','Rozłącz i usuń klucz')}`:`<form data-form="icu-connect"><p>Otwórz <a href="https://intervals.icu/settings" target="_blank" rel="noopener noreferrer">ustawienia Intervals.icu — klucz API ↗</a>, przewiń do sekcji Developer Settings na dole strony i wygeneruj lub skopiuj osobisty klucz API. Klucz daje dostęp do Twojego konta — wpisz go tylko na swoim urządzeniu. Nie używaj hasła do konta.</p><label for="icu-key">Osobisty klucz API</label><input id="icu-key" name="api_key" type="password" required autocomplete="off" spellcheck="false"><label class="release-choice"><input type="checkbox" name="remember_key"> Zapamiętaj klucz na tym urządzeniu</label><p>Bez zaznaczenia klucz działa do odświeżenia lub zamknięcia karty. Zaznaczaj tylko na własnym urządzeniu: zapisany klucz jest dostępny dla osób mających dostęp do tej przeglądarki. Klucz nie trafia do kopii JSON ani na nasz hosting.</p><button type="submit">Połącz i sprawdź konto</button></form>`}`:'<p>Najpierw wybierz lub utwórz profil.</p>'}</section>`;
+}
+function intervalExportView(id) {
+  const w=owns(D.byId(state.workouts,id));if(w.status!=='completed')throw Error('Najpierw zakończ trening.');
+  const account=intervalAccounts.get(profile().id);
+  const receipt=state.intervalExports?.find(r=>r.workout_id===w.id&&r.athlete_id===account?.id);
+  return head('Wyślij do Intervals.icu',w.plan_name,`workout/${w.id}`)+`<section class="card">${account?`<p>Konto docelowe: <strong>${esc(account.name)}</strong> (${esc(account.id)}).</p>${receipt?.status==='pending'?`<p class="warning">Poprzednia próba nie ma lokalnego potwierdzenia. Sprawdź konto Intervals.icu — wpis mógł zostać zapisany. Nie wysyłaj ponownie bez sprawdzenia.</p>${button('icu-reset','Sprawdziłem konto — odblokuj wybór',`data-id="${esc(w.id)}"`)}`:receipt?`<p class="info">Ten trening był już wysłany na to konto (${esc(receipt.mode==='note'?'notatka':receipt.mode==='new'?'nowa aktywność':'komentarz do aktywności')}). Ponowna wysyłka jest zablokowana, aby uniknąć duplikatów.</p>`:`<form data-form="icu-export">${hidden('workout_id',w.id)}${select('export_type','Co wysłać?',[['note','Notatka w kalendarzu'],['strength','Trening siłowy']],'note')}<div id="icu-strength" hidden>${select('strength_mode','Sposób zapisu treningu',[['existing','Dopisz do istniejącej aktywności'],['new','Utwórz nową aktywność']],'existing')}<div id="icu-existing"><p>Pobierz aktywności z dnia ${esc(w.training_date)} i wybierz właściwą. Podsumowanie dodamy jako komentarz; dotychczasowy opis, tętno i czas pozostaną zachowane. Część aktywności z Garmin/Strava może być niedostępna przez ograniczenia API.</p>${button('icu-load','Pobierz aktywności z tego dnia',`data-id="${esc(w.id)}"`)}${select('activity_id','Istniejąca aktywność',[['','Najpierw pobierz listę']],'')}</div><div id="icu-new" hidden><p class="warning">Jeśli Garmin lub inny zegarek prześle ten sam trening, w Intervals.icu mogą powstać dwie aktywności i podwójne statystyki. Aby tego uniknąć, wybierz dopisanie do istniejącej aktywności.</p><label><input type="checkbox" name="duplicate_ack"> Rozumiem ryzyko duplikatu i chcę utworzyć nowy trening.</label></div></div><h2>Podgląd wysyłanego podsumowania</h2><pre class="icu-summary">${esc(ICU.summary(w))}</pre><p id="icu-export-help">Powstanie notatka w kalendarzu, bez tworzenia aktywności.</p><button type="submit">Wyślij podsumowanie</button></form>`}`:`<p>Najpierw połącz konto w Ustawieniach. Możesz opcjonalnie zapamiętać klucz na tym urządzeniu.</p>${link('settings','Połącz konto Intervals.icu')}`}</section>`;
+}
+function syncIntervalFields() {
+  const form=$('[data-form=icu-export]');if(!form)return;
+  const strength=form.elements.export_type.value==='strength',existing=form.elements.strength_mode.value==='existing';
+  $('#icu-strength').hidden=!strength;$('#icu-existing').hidden=!existing;$('#icu-new').hidden=existing;
+  form.elements.activity_id.required=strength&&existing;form.elements.duplicate_ack.required=strength&&!existing;
+  $('#icu-export-help').textContent=!strength?'Powstanie notatka w kalendarzu, bez tworzenia aktywności.':existing?'Podsumowanie zostanie dodane jako komentarz do wybranej aktywności.':'Powstanie wykonany trening siłowy z datą i czasem sesji; bez wymyślonych pomiarów tętna, kalorii ani TSS.';
+}
 function settingsView() {
-  return head('Ustawienia','Kopie zapasowe i informacje o zapisie danych.')+`<section class="card"><h2>Twoje dane są na tym urządzeniu</h2><p>Aplikacja nie wysyła treningów na serwer. Profile są lokalne — telefon, komputer i różne przeglądarki mają oddzielne bazy. Nie ma kont ani podglądu danych innych osób przez administratora.</p><p class="warning">Wyczyszczenie danych witryny, tryb prywatny albo utrata urządzenia mogą usunąć historię. Regularnie pobieraj kopię JSON i przechowuj ją poza tą przeglądarką.</p><p>Ostatni pobrany eksport: <strong>${state.lastExportAt?esc(new Date(state.lastExportAt).toLocaleString('pl-PL')):'brak'}</strong>. Zapisz pobrany plik w bezpiecznym miejscu.</p><div class="actions">${button('export-all','Eksportuj wszystko · JSON','','')}${button('export-profile','Eksportuj aktywny profil',profile()?'':'disabled')}${button('export-csv','Wyniki profilu · CSV',profile()?'':'disabled')}</div></section><section class="card"><h2>Importuj kopię zapasową</h2><p>Obsługiwane: kopia JSON tej aplikacji oraz eksport JSON wersji Django (schema 2). CSV służy do analizy wyników, nie do odtwarzania danych.</p><p>Import dodaje nowe profile z dopiskiem „(import)”. Obecne dane pozostają zachowane. Ponowny import dokładnie tego samego pliku jest blokowany; import nie scala zmian między urządzeniami.</p><label for="import-file">Wybierz plik JSON (do 20 MB)</label><input id="import-file" type="file" accept="application/json,.json"><div id="import-preview"></div></section><section class="card"><h2>Praca offline i aktualizacje</h2><p id="storage-info">Sprawdzanie miejsca…</p><div class="actions">${button('persist','Poproś o trwałe przechowywanie')}${button('install','Zainstaluj aplikację','hidden')}${button('update','Sprawdź aktualizację')}${button('apply-update','Zastosuj nową wersję',registration?.waiting?'':'hidden')}</div><p>Najpierw otwórz aplikację online i zaczekaj na komunikat „Gotowa offline”. Potem wszystkie ekrany i zapis treningów działają bez sieci. Połączenie nie uruchamia synchronizacji danych.</p><p>Zmiana domeny lub przeglądarki wymaga eksportu i importu. Instalacja PWA również nie zastępuje kopii zapasowej.</p></section><section class="card"><h2>Dane DEMO</h2><p>Osobny profil z przykładowym planem, masą i 1RM. Liczby DEMO nie są zaleceniami Joe Friela.</p>${button('demo','Dodaj profil DEMO')}</section>`;
+  return head('Ustawienia','Kopie zapasowe i informacje o zapisie danych.')+intervalConnectionView()+`<section class="card"><h2>Twoje dane są na tym urządzeniu</h2><p>Aplikacja nie wysyła treningów na serwer. Profile są lokalne — telefon, komputer i różne przeglądarki mają oddzielne bazy. Nie ma kont ani podglądu danych innych osób przez administratora.</p><p class="warning">Wyczyszczenie danych witryny, tryb prywatny albo utrata urządzenia mogą usunąć historię. Regularnie pobieraj kopię JSON i przechowuj ją poza tą przeglądarką.</p><p>Ostatni pobrany eksport: <strong>${state.lastExportAt?esc(new Date(state.lastExportAt).toLocaleString('pl-PL')):'brak'}</strong>. Zapisz pobrany plik w bezpiecznym miejscu.</p><div class="actions">${button('export-all','Eksportuj wszystko · JSON','','')}${button('export-profile','Eksportuj aktywny profil',profile()?'':'disabled')}${button('export-csv','Wyniki profilu · CSV',profile()?'':'disabled')}</div></section><section class="card"><h2>Importuj kopię zapasową</h2><p>Obsługiwane: kopia JSON tej aplikacji oraz eksport JSON wersji Django (schema 2). CSV służy do analizy wyników, nie do odtwarzania danych.</p><p>Import dodaje nowe profile z dopiskiem „(import)”. Obecne dane pozostają zachowane. Ponowny import dokładnie tego samego pliku jest blokowany; import nie scala zmian między urządzeniami.</p><label for="import-file">Wybierz plik JSON (do 20 MB)</label><input id="import-file" type="file" accept="application/json,.json"><div id="import-preview"></div></section><section class="card"><h2>Praca offline i aktualizacje</h2><p id="storage-info">Sprawdzanie miejsca…</p><div class="actions">${button('persist','Poproś o trwałe przechowywanie')}${button('install','Zainstaluj aplikację','hidden')}${button('update','Sprawdź aktualizację')}${button('apply-update','Zastosuj nową wersję',registration?.waiting?'':'hidden')}</div><p>Najpierw otwórz aplikację online i zaczekaj na komunikat „Gotowa offline”. Potem wszystkie ekrany i zapis treningów działają bez sieci. Połączenie nie uruchamia synchronizacji danych.</p><p>Zmiana domeny lub przeglądarki wymaga eksportu i importu. Instalacja PWA również nie zastępuje kopii zapasowej.</p></section><section class="card"><h2>Dane DEMO</h2><p>Osobny profil z przykładowym planem, masą i 1RM. Liczby DEMO nie są zaleceniami Joe Friela.</p>${button('demo','Dodaj profil DEMO')}</section>`;
 }
 async function render() {
   if(!state) return;
@@ -182,6 +212,7 @@ async function render() {
     else if(screen==='plans') app.innerHTML=plansView();
     else if(screen==='plan') app.innerHTML=r[1]==='custom'?customPlanNewView():r[1]==='new'?planNewView(r[2]):r[2]==='add'?planAddView(r[1]):r[2]==='item'?itemEditView(r[1],r[3]):planView(r[1]);
     else if(screen==='history') app.innerHTML=historyView();
+    else if(screen==='interval-export') app.innerHTML=intervalExportView(r[1]);
     else if(screen==='workout') app.innerHTML=workoutView(r[1]);
     else if(screen==='exercises') app.innerHTML=exercisesView();
     else if(screen==='exercise') app.innerHTML=r[1]==='new'?exerciseNewView(r[2]):r[2]==='edit'?exerciseNewView(null,r[1]):exerciseView(r[1]);
@@ -189,7 +220,7 @@ async function render() {
     else if(screen==='settings') {app.innerHTML=settingsView();preparedImport=null;storageInfo(token);if(installPrompt)$('[data-action=install]').hidden=false;}
     else app.innerHTML=head('Nie znaleziono strony')+link('start','Wróć na start');
     document.title=(app.querySelector('h1')?.textContent||'Trening')+' · Siła na trasę';
-    syncCustomFields();tick();
+    syncCustomFields();syncIntervalFields();tick();
   } catch(error) {app.innerHTML=head('Nie można otworzyć widoku')+`<p class="warning">${esc(error.message)}</p>`+link('start','Wróć na start');}
 }
 function rememberDraft() {const form=$('#set-form');if(form&&!editingSet)drafts.set(form.elements.exercise_id.value,Object.fromEntries(new FormData(form)));}
@@ -213,7 +244,34 @@ document.addEventListener('submit',async event=>{
   if(kind==='set-save' && Date.now()-lastSetAt<500)return;
   saving=true;clearNotice();const submit=form.querySelector('button[type=submit]');if(submit)submit.disabled=true;
   try {
-    if(kind==='profile') {await commit(s=>values.id?D.updateProfile(s,values.id,values):D.addProfile(s,values));go('profile');}
+    if(kind==='icu-connect') {
+      const pid=profile().id,api=ICU.client(values.api_key),account=await api('/athlete/0');
+      if(!account?.id)throw Error('Nie udało się potwierdzić konta.');
+      const connected={id:String(account.id),name:account.name||String(account.id),api,remembered:false};
+      let storageFailed=false;
+      try{if(values.remember_key){ICA.saveAccount(pid,{...connected,key:values.api_key.trim()});connected.remembered=true;}else ICA.removeAccount(pid);}catch{storageFailed=true;}
+      intervalAccounts.set(pid,connected);form.reset();render();notice(storageFailed?'Połączono na czas działania karty, ale przeglądarka nie pozwoliła zmienić zapisu klucza. Sprawdź uprawnienia pamięci witryny.':connected.remembered?'Połączono z Intervals.icu i zapamiętano klucz na tym urządzeniu.':'Połączono z Intervals.icu na czas działania karty.',storageFailed);
+    }
+    else if(kind==='icu-export') {
+      const w=owns(D.byId(state.workouts,values.workout_id)),account=intervalAccounts.get(profile().id);
+      if(!account)throw Error('Połącz konto w Ustawieniach.');
+      const mode=values.export_type==='note'?'note':values.strength_mode;
+      if(!['note','new','existing'].includes(mode))throw Error('Wybierz sposób eksportu.');
+      if(mode==='new'&&!values.duplicate_ack)throw Error('Potwierdź ryzyko duplikatu z zegarkiem.');
+      if(!confirm(`Wysłać podsumowanie na konto ${account.name} (${account.id}) jako ${mode==='note'?'notatkę':mode==='new'?'nowy trening siłowy':'komentarz do wybranej aktywności'}?`))return;
+      if(!navigator.locks)throw Error('Ta przeglądarka nie obsługuje bezpiecznej blokady wysyłania. Użyj aktualnej przeglądarki przez HTTPS lub localhost.');
+      await navigator.locks.request(`icu-export-${account.id}-${w.id}`,async()=>{
+        const fresh=await readState();
+        if(fresh.intervalExports?.some(r=>r.workout_id===w.id&&r.athlete_id===account.id))throw Error('Ten trening był już wysłany na to konto.');
+        await commit(s=>{s.intervalExports??=[];s.intervalExports.push({workout_id:w.id,athlete_id:account.id,mode,status:'pending'});});
+        try {
+          const result=await ICU.send(account.api,w,mode,values.activity_id);
+          await commit(s=>{const receipt=s.intervalExports.find(r=>r.workout_id===w.id&&r.athlete_id===account.id);Object.assign(receipt,{status:'sent',remote_id:String(result.id??''),sent_at:new Date().toISOString()});});
+        }catch(error){render();throw error;}
+      });
+      render();notice('Podsumowanie zapisano w Intervals.icu.');
+    }
+    else if(kind==='profile') {await commit(s=>values.id?D.updateProfile(s,values.id,values):D.addProfile(s,values));go('profile');}
     else if(kind==='weight') {await commit(s=>D.measure(s,'weights',profile().id,values));render();notice('Pomiar zapisany na urządzeniu.');}
     else if(kind==='rm') {await commit(s=>D.measure(s,'rms',profile().id,values));render();notice('1RM zapisany. Poprzednie pomiary pozostają w historii.');}
     else if(kind==='estimate') {
@@ -268,6 +326,18 @@ document.addEventListener('click',async event=>{
     const r=route(),w=r[0]==='workout'?owns(D.byId(state.workouts,r[1])):null,e=w?.exercises[w.current_position];
     if(action==='demo') {await commit(s=>D.seedDemo(s));go('start');notice('Dodano osobny profil DEMO.');}
     else if(action==='switch-profile') {await commit(s=>{D.byId(s.profiles,el.dataset.id);s.activeProfileId=el.dataset.id;});editingSet=null;go('start');}
+    else if(action==='icu-reset') {
+      const account=intervalAccounts.get(profile().id),id=el.dataset.id;if(!account)throw Error('Połącz konto.');
+      if(confirm('Czy sprawdziłeś konto Intervals.icu? Jeśli podsumowanie już istnieje, nie twórz kolejnego wpisu. Odblokować wybór eksportu?')){await navigator.locks.request(`icu-export-${account.id}-${id}`,async()=>{await commit(s=>{s.intervalExports=(s.intervalExports||[]).filter(r=>!(r.workout_id===id&&r.athlete_id===account.id&&r.status==='pending'));});});render();}
+    }
+    else if(action==='icu-disconnect') {ICA.removeAccount(profile().id);intervalAccounts.delete(profile().id);intervalChoices=[];render();notice('Konto rozłączone. Zapisany klucz usunięto z tego urządzenia.');}
+    else if(action==='icu-load') {
+      const w=owns(D.byId(state.workouts,el.dataset.id)),account=intervalAccounts.get(profile().id);if(!account)throw Error('Połącz konto w Ustawieniach.');
+      const pid=profile().id;intervalChoices=await ICU.activities(account.api,w);
+      if(profile()?.id!==pid||!$('[data-form=icu-export]'))return;
+      const select=$('[name=activity_id]');select.innerHTML='<option value="">Wybierz aktywność</option>'+intervalChoices.map(a=>`<option value="${esc(a.id)}">${esc(a.start_date_local)} · ${esc(a.name||'Bez nazwy')} · ${esc(a.type||'Aktywność')} (${esc(a.id)})</option>`).join('');
+      notice(intervalChoices.length?'Wybierz właściwą aktywność z listy.':'Brak dostępnych aktywności tego dnia. Poczekaj na synchronizację zegarka lub utwórz nową aktywność.');
+    }
     else if(action==='delete-workout') {
       const target=owns(D.byId(state.workouts,el.dataset.id));
       if(confirm(`Usunąć trening „${target.plan_name}” z dnia ${target.training_date}? Wszystkie jego serie zostaną trwale usunięte z historii i wykresów. Plan pozostanie zachowany.`)){await commit(s=>D.deleteWorkout(s,target.id));editingSet=null;drafts.clear();render();notice('Trening i jego serie usunięto. Plan pozostaje zachowany.');}
@@ -313,6 +383,7 @@ document.addEventListener('input',event=>{
 });
 document.addEventListener('change',async event=>{
   try {
+    if(event.target.closest('[data-form=icu-export]'))syncIntervalFields();
     if(event.target.closest('[data-form=custom-item]')&&['exercise_id','basis'].includes(event.target.name))syncCustomFields();
     if(event.target.id==='active-profile' && event.target.value) {rememberDraft();await commit(s=>{D.byId(s.profiles,event.target.value);s.activeProfileId=event.target.value;});editingSet=null;go('start');}
     if(event.target.id==='import-file') {
@@ -375,7 +446,7 @@ async function setupWorker() {
 }
 try {
   const response=await fetch('./catalog.json');if(!response.ok)throw Error('Nie można wczytać katalogu ćwiczeń.');
-  state=await initialize(await response.json());await render();
+  state=await initialize(await response.json());restoreIntervalAccounts();await render();
   try{const release=await fetch('./release.json');if(release.ok)showRelease(await release.json());}catch{}
   setupWorker();
 } catch(error) {
