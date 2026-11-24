@@ -10,7 +10,10 @@ const n=D.formatNumber;
 const link=(path,label,classes='button secondary')=>`<a class="${classes}" href="#/${esc(path)}">${esc(label)}</a>`;
 const button=(action,label,attrs='',classes='secondary')=>`<button type="button" class="${classes}" data-action="${action}" ${attrs}>${esc(label)}</button>`;
 const field=(name,label,value='',attrs='',type='text')=>`<div class="field"><label for="${name}">${esc(label)}</label><input id="${name}" name="${name}" type="${type}" value="${esc(value)}" ${attrs}></div>`;
-const select=(name,label,options,value)=>`<div class="field"><label for="${name}">${esc(label)}</label><select id="${name}" name="${name}">${options.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(value)?'selected':''}>${esc(l)}</option>`).join('')}</select></div>`;
+const select=(name,label,options,value,help='')=>{
+  const labelHtml=`<label for="${name}">${esc(label)}</label>`;
+  return `<div class="field">${help?`<div class="field-help">${labelHtml}${help}</div>`:labelHtml}<select id="${name}" name="${name}">${options.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(value)?'selected':''}>${esc(l)}</option>`).join('')}</select></div>`;
+};
 const textarea=(name,label,value='',max=10000)=>`<div class="field"><label for="${name}">${esc(label)}</label><textarea id="${name}" name="${name}" maxlength="${max}">${esc(value)}</textarea></div>`;
 const hidden=(name,value)=>`<input type="hidden" name="${name}" value="${esc(value)}">`;
 const range=(low,high)=>low==null?'Brak danych':`${n(low)}${high!=null&&String(high)!==String(low)?'–'+n(high):''}`;
@@ -31,7 +34,14 @@ function clearNotice() {$('#notice').hidden=true;}
 async function commit(command) {const result=await mutate(command);state=result.state;return result.result;}
 const route=()=>location.hash.replace(/^#\/?/,'').split('/').filter(Boolean);
 function photoView(ex) {
-  return ex?.photo?`<details class="exercise-photo"><summary>Zdjęcie ćwiczenia</summary><img src="${esc(D.exercisePhoto(ex.photo))}" alt="Zdjęcie: ${esc(ex.name)}" loading="lazy"></details>`:'';
+  if(!ex)return '';
+  const id=ex.id??ex.exercise_id;
+  const stockId=/^friel-ex-(?:[1-9]|10|11)$/.test(id)?id
+    :id==='demo-ex-1'?'friel-ex-1'
+    :id==='demo-ex-2'?'friel-ex-3'
+    :id==='pompki'||ex.name.trim().toLocaleLowerCase('pl')==='pompki'?'pompki':null;
+  const src=ex.photo?D.exercisePhoto(ex.photo):stockId?`./exercise-${stockId}.jpg`:'';
+  return src?`<details class="exercise-photo"><summary>Zdjęcie ćwiczenia</summary><img src="${esc(src)}" alt="Ilustracja lub zdjęcie ćwiczenia: ${esc(ex.name)}" loading="lazy"></details>`:'';
 }
 async function preparePhoto(form,values) {
   const file=form.elements.photo_file.files[0];
@@ -137,11 +147,44 @@ function historyView() {
   return head('Treningi','Zapisane sesje i treningi w toku.')+`<section class="card">${rows.length?`<ul class="list">${rows.map(w=>`<li class="row"><div><span class="badge">${w.status==='active'?'W trakcie':'Zakończony'}</span><h3>${esc(w.plan_name)}</h3><small>${esc(w.training_date)} · ${esc(w.phase_name)} · ${w.exercises.reduce((n,e)=>n+e.sets.length,0)} serii</small></div><div class="actions">${link(`workout/${w.id}`,w.status==='active'?'Wznów':'Szczegóły')}${button('delete-workout','Usuń trening',`data-id="${esc(w.id)}"`,'danger small')}</div></li>`).join('')}</ul>`:'<p>Nie masz jeszcze zapisanych treningów.</p>'}</section>`;
 }
 const setResult=(row,time)=>`${time?n(row.seconds)+' s':n(row.weight)+' kg × '+n(row.reps)}${row.note?' · '+esc(row.note):''}`;
+function workoutExercisePicker(w,e) {
+  const options=D.availableWorkoutExercises(state,w)
+    .sort((a,b)=>a.name.localeCompare(b.name,'pl'))
+    .map(x=>[x.id,x.category?`${x.name} · ${x.category}`:x.name]);
+  const sessionFields=hidden('workout_id',w.id)+hidden('current_exercise_id',e.id);
+  const timing=[['next','Jako następne'],['now','Teraz, potem wróć do bieżącego']];
+  return `<details class="card"><summary>Dodaj ćwiczenie do treningu</summary>${options.length?`
+    <form data-form="workout-add-exercise">
+      ${sessionFields}
+      ${select('exercise_id','Ćwiczenie z biblioteki',[['','Wybierz ćwiczenie'],...options],'')}
+      ${select('when','Kiedy wykonać?',timing,'next')}
+      <button type="submit">Dodaj do treningu</button>
+    </form>`:'<p>Wszystkie dostępne ćwiczenia są już w tej sesji.</p>'}
+    <details>
+      <summary>Utwórz własne ćwiczenie</summary>
+      <form data-form="workout-create-exercise">
+        ${sessionFields}
+        ${field('name','Nazwa ćwiczenia','','required maxlength="160"')}
+        ${select('mode','Sposób rejestrowania',[['reps','Powtórzenia'],['time','Czas w sekundach']],'reps')}
+        ${select('load_notation','Sposób zapisu obciążenia',[
+          ['Łączny dodatkowy ciężar w kg','Łączny ciężar (np. 2 × 10 kg → wpisz 20 kg)'],
+          ['Ciężar jednego hantla w kg','Ciężar jednego hantla (np. 2 × 10 kg → wpisz 10 kg)'],
+          ['Tylko masa ciała','Tylko masa ciała (wpisz 0 kg)'],
+        ],'Łączny dodatkowy ciężar w kg',`
+          <details><summary aria-label="Co oznacza sposób zapisu obciążenia?" aria-describedby="load-notation-help">?</summary></details>
+          <span id="load-notation-help" class="field-help-text">Wybierz, co będziesz wpisywać w polu „Ciężar (kg)” przy każdej serii: sumę dodatkowego ciężaru, ciężar jednego hantla albo 0 kg przy ćwiczeniu z samą masą ciała.</span>
+        `)}
+        ${select('new_when','Kiedy wykonać nowe ćwiczenie?',timing,'next')}
+        <button type="submit">Zapisz w bibliotece i dodaj do treningu</button>
+      </form>
+    </details>
+  </details>`;
+}
 function workoutView(id) {
   const w=owns(D.byId(state.workouts,id));
   if(w.status==='completed') {
     const minutes=Math.max(0,Math.round((Date.parse(w.finished_at)-Date.parse(w.started_at))/60000));
-    return head('Trening zakończony',`${w.plan_name} · ${w.training_date} · ${minutes} min`,'history')+`<p class="info">Sesja zapisana na urządzeniu. Historyczne parametry i wyniki pozostają zachowane.</p>${w.exercises.map(e=>`<section class="card"><h2>${esc(e.snapshot.name)}</h2>${workoutVideo(e.snapshot)}<small>${e.skipped?'Oznaczone jako pominięte':'Wykonane serie: '+e.sets.length}</small><ul class="set-list">${e.sets.map(r=>`<li>Seria ${r.number}: <strong>${setResult(r,e.snapshot.mode==='time')}</strong></li>`).join('')||'<li>Brak zapisanych serii.</li>'}</ul>${link(`exercise/${e.snapshot.exercise_id}`,'Historia i wykres','')}<details><summary>Parametry zapisane przy rozpoczęciu</summary>${prescriptionSummary(e.snapshot)}<p>${esc(e.snapshot.load.explanation)}</p><p>1RM: ${n(e.snapshot.rm)} kg · masa ciała: ${n(e.snapshot.body_weight)} kg</p></details></section>`).join('')}<div class="actions">${link(`interval-export/${w.id}`,'Wyślij do Intervals.icu','button')}${link('plans','Wybierz kolejny trening','button')}${link('settings','Eksportuj dane')}</div>`;
+    return head('Trening zakończony',`${w.plan_name} · ${w.training_date} · ${minutes} min`,'history')+`<p class="info">Sesja zapisana na urządzeniu. Historyczne parametry i wyniki pozostają zachowane.</p>${w.exercises.map(e=>`<section class="card"><h2>${esc(e.snapshot.name)}</h2>${workoutVideo(e.snapshot)}${photoView(state.exercises.find(x=>x.id===e.snapshot.exercise_id)??e.snapshot)}<small>${e.skipped?'Oznaczone jako pominięte':'Wykonane serie: '+e.sets.length}</small><ul class="set-list">${e.sets.map(r=>`<li>Seria ${r.number}: <strong>${setResult(r,e.snapshot.mode==='time')}</strong></li>`).join('')||'<li>Brak zapisanych serii.</li>'}</ul>${link(`exercise/${e.snapshot.exercise_id}`,'Historia i wykres','')}<details><summary>Parametry zapisane w sesji</summary>${prescriptionSummary(e.snapshot)}<p>${esc(e.snapshot.load.explanation)}</p><p>1RM: ${n(e.snapshot.rm)} kg · masa ciała: ${n(e.snapshot.body_weight)} kg</p></details></section>`).join('')}<div class="actions">${link(`interval-export/${w.id}`,'Wyślij do Intervals.icu','button')}${link('plans','Wybierz kolejny trening','button')}${link('settings','Eksportuj dane')}</div>`;
   }
   const e=w.exercises[w.current_position],p=e.snapshot,time=p.mode==='time',loadRow=p.load.series_loads?.[Math.min(e.sets.length,(p.load.series_loads?.length||1)-1)]||p.load;
   if(editingSet && !e.sets.some(r=>r.id===editingSet)) editingSet=null;
@@ -152,7 +195,7 @@ function workoutView(id) {
   const lastWeight=lastSet?.weight;
   const defaultWeight=p.load.series_loads?.length?loadRow.min??'':lastWeight??loadRow.min??(p.basis==='none'?'0':'');
   const values=row||draft||{weight:defaultWeight,reps:lastSet?.reps??p.reps_min??'',seconds:p.seconds??'',note:''};
-  return head(p.name,`Ćwiczenie ${w.current_position+1} z ${w.exercises.length} · ${w.plan_name}`,'history')+`<section class="card workout-clock"><span>Czas treningu · razem z przerwami</span><output id="workout-timer" aria-live="off">00:00:00</output></section>${w.body_weight==null?`<p class="warning">Brak masy ciała w kopii tej sesji. ${link('profile','Dodaj pomiar dla kolejnych sesji','')}.</p>`:''}<section class="card"><span class="badge">${p.overridden?'Własne parametry planu':'Zalecenia fazy '+(p.parameter_code||p.phase_code||'')}</span>${prescriptionSummary(p)}${workoutVideo(p)}${photoView(state.exercises.find(x=>x.id===p.exercise_id))}<p><strong>Zalecany ciężar</strong></p><p id="load-explanation">${esc(p.load.explanation)}</p>${p.load.series_loads?p.load.series_loads.map(r=>`<p>Seria ${r.number}: ${esc(r.explanation)}</p>`).join(''):''}${p.end_goal?`<details><summary>Cel końcowy SM</summary><p>${esc(typeof p.end_goal==='string'?p.end_goal:p.end_goal.explanation)}</p></details>`:''}<details><summary>Uwagi i zapis obciążenia</summary><p>${esc(p.notes||'Brak danych')}</p><p>${esc(p.description||'Brak danych')}</p><p>${esc(p.load_notation||'Brak danych')}</p><p>1RM w sesji: ${n(p.rm)} kg${p.rm_date?' ('+esc(p.rm_date)+')':''}. Masa ciała: ${n(p.body_weight)} kg.</p></details></section><div class="grid"><section class="card"><div class="rest"><span>Odpoczynek</span><output id="rest-timer" aria-live="off">0:00</output>${button('stop-timer','Zatrzymaj','','secondary small')}</div><form id="set-form" data-form="set-save">${hidden('workout_id',w.id)}${hidden('exercise_id',e.id)}${hidden('id',row?.id||formSetId)}<h2>${row?'Edytuj serię '+row.number:'Seria '+(e.sets.length+1)}</h2><div class="field"><label for="weight">Ciężar (kg)</label><div class="stepper"><input id="weight" name="weight" value="${esc(values.weight)}" required inputmode="decimal" autocomplete="off"></div><div class="step-buttons">${[-10,-5,-1,1,5,10].map(v=>button('adjust',`${v>0?'+':''}${v}`,`data-field="weight" data-delta="${v}" aria-label="Zmień ciężar o ${v} kg"`)).join('')}</div></div><div class="field"><label for="${time?'seconds':'reps'}">${time?'Czas (s)':'Powtórzenia'}</label><div class="stepper">${button('adjust','−',`data-field="${time?'seconds':'reps'}" data-delta="${time?-5:-1}" aria-label="Zmniejsz ${time?'czas':'powtórzenia'}"`)}<input id="${time?'seconds':'reps'}" name="${time?'seconds':'reps'}" type="number" min="0" step="1" value="${esc(time?values.seconds:values.reps)}" required inputmode="numeric">${button('adjust','+',`data-field="${time?'seconds':'reps'}" data-delta="${time?5:1}" aria-label="Zwiększ ${time?'czas':'powtórzenia'}"`)}</div></div>${textarea('note','Notatka (opcjonalnie)',values.note||'',500)}<div class="actions"><button type="submit">${row?'Zapisz poprawkę':'Zapisz serię'}</button>${row?button('cancel-edit','Anuluj edycję'):''}</div></form></section><section class="card"><h2>Bieżące serie</h2><ul class="set-list">${e.sets.map(r=>`<li><div><strong>${r.number}. ${setResult(r,time)}</strong></div><div class="actions">${button('edit-set','Edytuj',`data-id="${r.id}"`,'secondary small')}${button('delete-set','Usuń',`data-id="${r.id}"`,'danger small')}</div></li>`).join('')||'<li>Nie zapisano jeszcze serii.</li>'}</ul><h3>Ostatnie wyniki</h3>${p.previous_results?.length?`<ul class="list">${p.previous_results.map(r=>`<li><small>${esc(r.date)}</small><br>${setResult(r,time)}</li>`).join('')}</ul>`:'<p>To ćwiczenie nie ma jeszcze zapisanej historii.</p>'}</section></div><div class="card actions">${button('previous','← Poprzednie',w.current_position===0?'disabled':'')}${button('next','Następne →',w.current_position===w.exercises.length-1?'disabled':'')}${button('skip','Pomiń ćwiczenie')}${button('finish','Zakończ trening','','')}</div>`;
+  return head(p.name,`Ćwiczenie ${w.current_position+1} z ${w.exercises.length} · ${w.plan_name}`,'history')+`<section class="card workout-clock"><span>Czas treningu · razem z przerwami</span><output id="workout-timer" aria-live="off">00:00:00</output></section>${workoutExercisePicker(w,e)}${w.body_weight==null?`<p class="warning">Brak masy ciała w kopii tej sesji. ${link('profile','Dodaj pomiar dla kolejnych sesji','')}.</p>`:''}<section class="card"><span class="badge">${p.added_during_workout?'Dodane w trakcie treningu':p.overridden?'Własne parametry planu':'Zalecenia fazy '+(p.parameter_code||p.phase_code||'')}</span>${prescriptionSummary(p)}${workoutVideo(p)}${photoView(state.exercises.find(x=>x.id===p.exercise_id))}<p><strong>Zalecany ciężar</strong></p><p id="load-explanation">${esc(p.load.explanation)}</p>${p.load.series_loads?p.load.series_loads.map(r=>`<p>Seria ${r.number}: ${esc(r.explanation)}</p>`).join(''):''}${p.end_goal?`<details><summary>Cel końcowy SM</summary><p>${esc(typeof p.end_goal==='string'?p.end_goal:p.end_goal.explanation)}</p></details>`:''}<details><summary>Uwagi i zapis obciążenia</summary><p>${esc(p.notes||'Brak danych')}</p><p>${esc(p.description||'Brak danych')}</p><p>${esc(p.load_notation||'Brak danych')}</p><p>1RM w sesji: ${n(p.rm)} kg${p.rm_date?' ('+esc(p.rm_date)+')':''}. Masa ciała: ${n(p.body_weight)} kg.</p></details></section><div class="grid"><section class="card"><div class="rest"><span>Odpoczynek</span><output id="rest-timer" aria-live="off">0:00</output>${button('stop-timer','Zatrzymaj','','secondary small')}</div><form id="set-form" data-form="set-save">${hidden('workout_id',w.id)}${hidden('exercise_id',e.id)}${hidden('id',row?.id||formSetId)}<h2>${row?'Edytuj serię '+row.number:'Seria '+(e.sets.length+1)}</h2><div class="field"><label for="weight">Ciężar (kg)</label><div class="stepper"><input id="weight" name="weight" value="${esc(values.weight)}" required inputmode="decimal" autocomplete="off"></div><div class="step-buttons">${[-10,-5,-1,1,5,10].map(v=>button('adjust',`${v>0?'+':''}${v}`,`data-field="weight" data-delta="${v}" aria-label="Zmień ciężar o ${v} kg"`)).join('')}</div></div><div class="field"><label for="${time?'seconds':'reps'}">${time?'Czas (s)':'Powtórzenia'}</label><div class="stepper">${button('adjust','−',`data-field="${time?'seconds':'reps'}" data-delta="${time?-5:-1}" aria-label="Zmniejsz ${time?'czas':'powtórzenia'}"`)}<input id="${time?'seconds':'reps'}" name="${time?'seconds':'reps'}" type="number" min="0" step="1" value="${esc(time?values.seconds:values.reps)}" required inputmode="numeric">${button('adjust','+',`data-field="${time?'seconds':'reps'}" data-delta="${time?5:1}" aria-label="Zwiększ ${time?'czas':'powtórzenia'}"`)}</div></div>${textarea('note','Notatka (opcjonalnie)',values.note||'',500)}<div class="actions"><button type="submit">${row?'Zapisz poprawkę':'Zapisz serię'}</button>${row?button('cancel-edit','Anuluj edycję'):''}</div></form></section><section class="card"><h2>Bieżące serie</h2><ul class="set-list">${e.sets.map(r=>`<li><div><strong>${r.number}. ${setResult(r,time)}</strong></div><div class="actions">${button('edit-set','Edytuj',`data-id="${r.id}"`,'secondary small')}${button('delete-set','Usuń',`data-id="${r.id}"`,'danger small')}</div></li>`).join('')||'<li>Nie zapisano jeszcze serii.</li>'}</ul><h3>Ostatnie wyniki</h3>${p.previous_results?.length?`<ul class="list">${p.previous_results.map(r=>`<li><small>${esc(r.date)}</small><br>${setResult(r,time)}</li>`).join('')}</ul>`:'<p>To ćwiczenie nie ma jeszcze zapisanej historii.</p>'}</section></div><div class="card actions">${button('previous','← Poprzednie',w.current_position===0?'disabled':'')}${button('next','Następne →',w.current_position===w.exercises.length-1?'disabled':'')}${button('skip','Pomiń ćwiczenie')}${button('finish','Zakończ trening','','')}</div>`;
 }
 function exercisesView() {
   const list=state.exercises.filter(e=>!e.archived).sort((a,b)=>a.name.localeCompare(b.name,'pl'));
@@ -309,6 +352,20 @@ document.addEventListener('submit',async event=>{
       const plan=owns(D.byId(state.plans,values.plan_id)),active=state.workouts.find(w=>w.plan_id===plan.id && w.status==='active');
       if(active) {go(`workout/${active.id}`);notice('Ten plan ma rozpoczętą sesję — wznowiono ją. Zakończ ją przed rozpoczęciem kolejnej.');}
       else {const w=await commit(s=>D.startWorkout(s,values.plan_id,values.date));editingSet=null;formSetId=D.uid();go(`workout/${w.id}`);}
+    }
+    else if(kind==='workout-add-exercise'||kind==='workout-create-exercise') {
+      const w=owns(D.byId(state.workouts,values.workout_id));
+      const creating=kind==='workout-create-exercise',when=creating?values.new_when:values.when;
+      rememberDraft();
+      await commit(s=>{
+        const exerciseId=creating?D.addExercise(s,values).id:values.exercise_id;
+        D.addWorkoutExercise(s,w.id,values.current_exercise_id,exerciseId,when);
+      });
+      if(when==='now'){editingSet=null;formSetId=D.uid();}
+      render();
+      if(when==='now') app.querySelector('h1')?.scrollIntoView();
+      const message=when==='now'?'Ćwiczenie dodane. Przycisk „Następne” wróci do poprzednio otwartego ćwiczenia.':'Ćwiczenie dodane jako następne.';
+      notice(creating?`Zapisano w bibliotece. ${message}`:message);
     }
     else if(kind==='set-save') {
       await commit(s=>D.saveSet(s,values.workout_id,values.exercise_id,values));lastSetAt=Date.now();drafts.delete(values.exercise_id);editingSet=null;formSetId=D.uid();render();notice('Seria zapisana na urządzeniu.');

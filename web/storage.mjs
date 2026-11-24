@@ -46,7 +46,18 @@ export async function initialize(catalog) {
   const db=await open();
   await new Promise((resolve,reject)=>{
     const tx=db.transaction('data','readwrite'),store=tx.objectStore('data'),req=store.get('state');
-    req.onsuccess=()=>{if(!req.result) store.put(newState(catalog),'state');};
+    req.onsuccess=()=>{
+      const state=req.result;
+      if(!state) {
+        store.put(newState(catalog),'state');
+        return;
+      }
+      const pushUp=catalog.exercises.find(ex=>ex.id==='pompki');
+      if(pushUp&&!state.exercises.some(ex=>ex.id===pushUp.id||(!ex.archived&&ex.name.trim().toLocaleLowerCase('pl')==='pompki'))) {
+        state.exercises.push(pushUp);
+        store.put(state,'state');
+      }
+    };
     tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
   });
   const state=await readState();validateState(state);return state;

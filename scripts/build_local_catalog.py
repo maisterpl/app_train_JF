@@ -63,6 +63,9 @@ def build():
         slots.append(dict(id=f'DEMO-{index}', phase_id='DEMO', position=index, title=name, category='fixed',
                           default_exercise_id=eid, allowed_exercise_ids=[eid],
                           prescription=dict(**p, notes='Wyłącznie DEMO, nie zalecenia Joe Friela.')))
+    exercises.append(dict(id='pompki', name='Pompki', mode='reps', category='Klatka piersiowa',
+                          description='',
+                          load_notation='Dodatkowy ciężar w kg; przy pompkach z samą masą ciała wpisz 0 kg.'))
     return dict(exercises=exercises, phases=phases, slots=slots, goals=goals)
 
 

@@ -10,3 +10,42 @@
 .release-dialog{width:min(560px,calc(100% - 2rem));max-height:85dvh;overflow:auto;box-sizing:border-box;border:1px solid #b7c8be;border-radius:18px;padding:1.5rem;color:#153b31;background:#fff}.release-dialog::backdrop{background:#10251dcc}.release-dialog li{margin-bottom:.65rem}.release-choice{display:flex;align-items:flex-start;gap:.6rem;margin:1.25rem 0}.release-choice input{width:auto;flex-shrink:0;margin-top:.25rem}
 
 .icu-summary{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;background:#f2f5f0;padding:1rem;border-radius:10px}#icu-new input[type=checkbox]{width:auto}
+
+.field-help {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.field-help > label { margin: 0; }
+.field-help > details > summary {
+  display: grid;
+  place-items: center;
+  list-style: none;
+  width: 36px;
+  min-height: 36px;
+  border-radius: 50%;
+  background: #eef2e9;
+  font-weight: 700;
+}
+.field-help > details > summary::-webkit-details-marker { display: none; }
+.field-help-text {
+  position: absolute;
+  z-index: 2;
+  top: 100%;
+  left: 0;
+  width: min(100%, 28rem);
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #153b31;
+  color: white;
+  visibility: hidden;
+}
+.field-help > details[open] + .field-help-text,
+.field-help:has(summary:focus-visible) .field-help-text {
+  visibility: visible;
+}
+@media (hover: hover) {
+  .field-help > details:hover + .field-help-text,
+  .field-help-text:hover { visibility: visible; }
+}

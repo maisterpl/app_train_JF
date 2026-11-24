@@ -111,6 +111,14 @@
       "category": "DEMO",
       "description": "Ćwiczenie demonstracyjne, nie instruktaż techniki.",
       "load_notation": "Dodatkowy ciężar w kg; dla deski brak obciążenia."
+    },
+    {
+      "id": "pompki",
+      "name": "Pompki",
+      "mode": "reps",
+      "category": "Klatka piersiowa",
+      "description": "",
+      "load_notation": "Dodatkowy ciężar w kg; przy pompkach z samą masą ciała wpisz 0 kg."
     }
   ],
   "phases": [

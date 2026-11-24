@@ -277,18 +277,36 @@ export function startWorkout(s,planId,day=today(),id=uid()) {
   if (!plan.items.length) throw Error('Dodaj co najmniej jedno ćwiczenie.');
   const body=latest(s.weights,profile.id,day);
   const w={id,profile_id:profile.id,plan_id:plan.id,plan_name:plan.name,phase_name:phase.name,training_date:day,started_at:new Date().toISOString(),finished_at:null,status:'active',current_position:0,body_weight:body?.value??null,body_weight_date:body?.date??null,rounding_step:profile.rounding_step,rest_until:null,exercises:[]};
-  for (const item of plan.items) {
-    const exercise=byId(s.exercises,item.exercise_id), rm=latest(s.rms,profile.id,day,exercise.id), p=clone(item.prescription);
-    if (p.series_load_mode==='endpoints' && ![2,3].includes(p.chosen_sets)) throw Error('Przed treningiem wybierz 2 albo 3 serie US.');
-    const previous=s.workouts.filter(x=>x.profile_id===profile.id && x.status==='completed' && x.training_date<=day && x.exercises.some(e=>e.snapshot.exercise_id===exercise.id && e.sets.length)).sort((a,b)=>b.training_date.localeCompare(a.training_date)||b.started_at.localeCompare(a.started_at))[0];
-    const previous_results=previous?previous.exercises.filter(e=>e.snapshot.exercise_id===exercise.id).flatMap(e=>e.sets.map(r=>({...clone(r),date:previous.training_date}))):[];
-    const goal=s.goals.find(g=>g.phase_id===phase.id && g.exercise_id===exercise.id);
-    const load=calculateLoad(p,rm?.value,body?.value,profile.rounding_step);
-    w.exercises.push({id:uid(),skipped:false,sets:[],snapshot:{...p,...clone(exercise),id:undefined,exercise_id:exercise.id,phase_code:phase.code,slot_id:item.slot_id,overridden:item.overridden,rm:rm?.value??null,rm_date:rm?.date??null,rm_is_estimated:rm?.is_estimated??false,body_weight:body?.value??null,body_weight_date:body?.date??null,load,end_goal:p.parameter_code==='SM'?calculateGoal(goal,body?.value):null,previous_results}});
-  }
+  w.exercises=plan.items.map(item=>workoutExercise(s,w,item,phase));
   s.workouts.push(w); return w;
 }
-function activeWorkout(s,id) { const w=byId(s.workouts,id); if(w.status!=='active') throw Error('Trening jest zakończony. Nie można zmieniać serii.'); return w; }
+function workoutExercise(s,w,item,phase) {
+  const exercise=byId(s.exercises,item.exercise_id),p=clone(item.prescription);
+  const rm=latest(s.rms,w.profile_id,w.training_date,exercise.id);
+  if(p.series_load_mode==='endpoints' && ![2,3].includes(p.chosen_sets)) throw Error('Przed treningiem wybierz 2 albo 3 serie US.');
+  const previous=s.workouts.filter(x=>x.profile_id===w.profile_id && x.status==='completed' && x.training_date<=w.training_date && x.exercises.some(e=>e.snapshot.exercise_id===exercise.id && e.sets.length)).sort((a,b)=>b.training_date.localeCompare(a.training_date)||b.started_at.localeCompare(a.started_at))[0];
+  const previous_results=previous?previous.exercises.filter(e=>e.snapshot.exercise_id===exercise.id).flatMap(e=>e.sets.map(r=>({...clone(r),date:previous.training_date}))):[];
+  const goal=s.goals.find(g=>g.phase_id===phase?.id && g.exercise_id===exercise.id);
+  const load=calculateLoad(p,rm?.value,w.body_weight,w.rounding_step);
+  return {id:uid(),skipped:false,sets:[],snapshot:{...p,...clone(exercise),id:undefined,exercise_id:exercise.id,phase_code:phase?.code??'',slot_id:item.slot_id,overridden:item.overridden,rm:rm?.value??null,rm_date:rm?.date??null,rm_is_estimated:rm?.is_estimated??false,body_weight:w.body_weight,body_weight_date:w.body_weight_date,load,end_goal:p.parameter_code==='SM'?calculateGoal(goal,w.body_weight):null,previous_results}};
+}
+function activeWorkout(s,id) { const w=byId(s.workouts,id); if(w.status!=='active') throw Error('Trening jest zakończony. Nie można go zmieniać.'); return w; }
+export function availableWorkoutExercises(s,w) {
+  const used=new Set(w.exercises.map(e=>e.snapshot.exercise_id));
+  return s.exercises.filter(e=>!e.archived&&!used.has(e.id));
+}
+export function addWorkoutExercise(s,workoutId,currentExerciseId,exerciseId,when) {
+  const w=activeWorkout(s,workoutId);
+  if(w.profile_id!==s.activeProfileId) throw Error('Wybierz profil właściciela treningu.');
+  if(w.exercises[w.current_position].id!==currentExerciseId) throw Error('Bieżące ćwiczenie zmieniło się. Wybierz ponownie.');
+  if(!availableWorkoutExercises(s,w).some(e=>e.id===exerciseId)) throw Error('Wybierz dostępne ćwiczenie spoza listy treningu.');
+  if(!['now','next'].includes(when)) throw Error('Wybierz, kiedy wykonać ćwiczenie.');
+  if(w.exercises.length>=1000) throw Error('Trening osiągnął limit ćwiczeń.');
+  const position=w.current_position+(when==='next'?1:0);
+  const entry=workoutExercise(s,w,{exercise_id:exerciseId,slot_id:null,overridden:true,prescription:prescription({notes:'Ćwiczenie dodane w trakcie sesji. Wpisz parametry przy zapisie serii.'})});
+  entry.snapshot.added_during_workout=true;
+  w.exercises.splice(position,0,entry);
+}
 export function saveSet(s,workoutId,exerciseId,values) {
   const w=activeWorkout(s,workoutId), ex=byId(w.exercises,exerciseId), id=values.id||uid();
   const existing=ex.sets.find(r=>r.id===id);
