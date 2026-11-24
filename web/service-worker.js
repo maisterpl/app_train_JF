@@ -1,7 +1,7 @@
-const RELEASE = '85fd0b0fa8d3221c';
+const RELEASE = '832a4f17cd3ef184';
 const PREFIX='sila-local-shell-';
 const CACHE=PREFIX+RELEASE;
-const ASSETS=['./','./index.html','./style.css','./app.mjs','./domain.mjs','./storage.mjs','./backup.mjs','./intervals.mjs','./intervals-account.mjs','./catalog.json','./release.json','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
+const ASSETS=['./','./index.html','./style.css','./app.mjs','./domain.mjs','./ai-training.mjs','./storage.mjs','./backup.mjs','./intervals.mjs','./intervals-account.mjs','./catalog.json','./release.json','./manifest.webmanifest','./icon.svg','./icon-192.png','./icon-512.png'];
 const EXERCISE_IMAGES=[
   ...Array.from({length:11},(_,i)=>`./exercise-friel-ex-${i+1}.jpg`),
   './exercise-pompki.jpg',

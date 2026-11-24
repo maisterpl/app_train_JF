@@ -1,6 +1,7 @@
 import * as ICA from './intervals-account.mjs';
 import * as ICU from './intervals.mjs';
 import * as D from './domain.mjs';
+import {MAX_PHASE_SIZE,trainingPrompt,parseTrainingPhase,importTrainingPhase} from './ai-training.mjs';
 import {initialize,mutate,readState,changes} from './storage.mjs';
 import {makeBackup,parseBackup,importBackup,resultsCSV,MAX_BACKUP_BYTES} from './backup.mjs';
 
@@ -29,6 +30,7 @@ const workoutVideo=snapshot=>videoLink(snapshot.video_url||state.exercises.find(
 const head=(title,subtitle='',back='')=>`${back?link(back,'← Wróć','back'):''}<div class="heading"><div><span class="eyebrow">Twój trening, krok po kroku</span><h1>${esc(title)}</h1>${subtitle?`<p class="muted">${esc(subtitle)}</p>`:''}</div></div>`;
 let state,preparedImport=null,routeToken=0,editingSet=null,saving=false,lastSetAt=0,formSetId=D.uid(),registration=null;
 const drafts=new Map();
+let preparedPhase=null;
 function notice(message,error=false) {const el=$('#notice');el.textContent=message;el.dataset.error=String(error);el.hidden=false;if(error)el.scrollIntoView({block:'nearest'});}
 function clearNotice() {$('#notice').hidden=true;}
 async function commit(command) {const result=await mutate(command);state=result.state;return result.result;}
@@ -92,6 +94,31 @@ function plansView() {
   const plans=state.plans.filter(p=>p.profile_id===profile().id);
   const phases=state.phases;
   return head('Plany','Wybierz zapisany plan lub skorzystaj z gotowego zestawu fazy.')+`<section class="card"><div class="row"><h2>Twoje plany</h2><div class="actions">${link('plan/custom','Utwórz własny plan','button')}${link('plan/new','Plan z fazy')}</div></div>${plans.length?`<ul class="list">${plans.map(p=>`<li class="row"><div><strong>${esc(p.name)}</strong><br><small>${esc(phaseFor(p).name)} · ${p.items.length} ćwiczeń</small></div><div class="actions">${link(`plan/${p.id}`,'Otwórz')}${button('delete-plan','Usuń',`data-id="${esc(p.id)}"`,'danger small')}</div></li>`).join('')}</ul>`:'<p>Nie masz jeszcze planu. Wybierz jedną z faz poniżej.</p>'}</section><h2>Gotowe zestawy faz</h2><div class="grid">${phases.map(p=>`<section class="card"><span class="badge ${p.is_demo?'demo':''}">${esc(p.code)}</span><h3>${esc(p.name)}</h3>${phaseSummary(p)}<p>${state.slots.filter(r=>r.phase_id===p.id).length} pozycji do wyboru</p>${link(`plan/new/${p.id}`,'Utwórz plan tej fazy')}</section>`).join('')}</div>`;
+}
+function aiTrainingView() {
+  preparedPhase=null;
+  return head('Treningi AI','Przygotuj fazę treningową w ChatGPT i zapisz ją w swoich planach.')+`
+    <form class="card" data-form="ai-prompt">
+      <h2>1. Opisz trening</h2>
+      ${textarea('ai_goal','Jaki trening chcesz wykonać?','',2000)}
+      ${textarea('ai_basis','Na jakiej podstawie ma powstać?','',2000)}
+      <p>Podaj cel, liczbę tygodni i treningów, dostępny sprzęt oraz metodykę lub materiał, na którym chcesz się oprzeć.</p>
+      <button type="submit">Stwórz i otwórz ChatGPT</button>
+      <div id="ai-prompt-result" hidden>
+        <p>Wklej prompt do ChatGPT i wyślij. Materiały źródłowe możesz dodać w rozmowie.</p>
+        <label for="ai-prompt-text">Gotowy prompt</label>
+        <textarea id="ai-prompt-text" readonly rows="6"></textarea>
+        <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Otwórz ChatGPT</a>
+      </div>
+    </form>
+    <form class="card" data-form="ai-preview">
+      <h2>2. Wczytaj fazę</h2>
+      <label for="ai-file">Plik JSON z ChatGPT (do 1 MB)</label>
+      <input id="ai-file" name="ai_file" type="file" accept=".json,application/json">
+      ${textarea('ai_json','Lub wklej odpowiedź z ChatGPT zawierającą JSON','',MAX_PHASE_SIZE)}
+      <button type="submit">Pokaż podgląd</button>
+      <div id="ai-preview" aria-live="polite"></div>
+    </form>`;
 }
 function planNewView(phaseId) {
   const phases=state.phases;
@@ -253,6 +280,7 @@ async function render() {
     else if(screen==='profiles') app.innerHTML=profilesView();
     else if(screen==='profile') app.innerHTML=r[1]==='new'?profileForm():r[1]==='edit'&&profile()?profileForm(true):profile()?profileView():emptyProfile();
     else if(screen==='plans') app.innerHTML=plansView();
+    else if(screen==='ai-training') app.innerHTML=aiTrainingView();
     else if(screen==='plan') app.innerHTML=r[1]==='custom'?customPlanNewView():r[1]==='new'?planNewView(r[2]):r[2]==='add'?planAddView(r[1]):r[2]==='item'?itemEditView(r[1],r[3]):planView(r[1]);
     else if(screen==='history') app.innerHTML=historyView();
     else if(screen==='interval-export') app.innerHTML=intervalExportView(r[1]);
@@ -287,7 +315,40 @@ document.addEventListener('submit',async event=>{
   if(kind==='set-save' && Date.now()-lastSetAt<500)return;
   saving=true;clearNotice();const submit=form.querySelector('button[type=submit]');if(submit)submit.disabled=true;
   try {
-    if(kind==='icu-connect') {
+    if(kind==='ai-prompt') {
+      const prompt=trainingPrompt(values.ai_goal,values.ai_basis);
+      const output=$('#ai-prompt-text');
+      output.value=prompt;
+      $('#ai-prompt-result').hidden=false;
+      const copying=navigator.clipboard?.writeText(prompt).catch(()=>false);
+      window.open('https://chatgpt.com/','_blank','noopener,noreferrer');
+      notice(copying&&await copying!==false?'Skopiowano prompt. Wklej go do ChatGPT.':'Skopiuj gotowy prompt i wklej go do ChatGPT.');
+    }
+    else if(kind==='ai-preview') {
+      preparedPhase=null;
+      const preview=$('#ai-preview');
+      preview.textContent='';
+      const pid=profile().id,file=values.ai_file;
+      let phase,draft,before,result;
+      try {
+        const pasted=values.ai_json.trim();
+        if(!pasted&&file?.size>MAX_PHASE_SIZE)throw Error('Plik treningu AI może mieć maksymalnie 1 MB.');
+        phase=parseTrainingPhase(pasted||(file?.size?await file.text():''));
+        draft=D.clone(state);
+        before=draft.exercises.length;
+        result=importTrainingPhase(draft,pid,phase);
+      } catch(error) {
+        preview.innerHTML=`<p class="warning">${esc(error.message)}</p>`;
+        return;
+      }
+      if(!form.isConnected)return;
+      preparedPhase={pid,phase};
+      preview.innerHTML=`<h3>${esc(result.name)} · liczba tygodni: ${result.weeks}</h3>
+        <p>Plany: ${result.plans.length} · nowe ćwiczenia: ${draft.exercises.length-before}</p>
+        ${result.plans.map(plan=>`<details><summary>${esc(plan.name)} · ćwiczeń: ${plan.items.length}</summary><ul class="list">${plan.items.map(({exercise_id,prescription:p})=>`<li><strong>${esc(D.byId(draft.exercises,exercise_id).name)}</strong>${prescriptionSummary(p)}</li>`).join('')}</ul></details>`).join('')}
+        ${button('ai-import','Zapisz fazę w swoich planach','','')}`;
+    }
+    else if(kind==='icu-connect') {
       const pid=profile().id,api=ICU.client(values.api_key),account=await api('/athlete/0');
       if(!account?.id)throw Error('Nie udało się potwierdzić konta.');
       const connected={id:String(account.id),name:account.name||String(account.id),api,remembered:false};
@@ -426,6 +487,16 @@ document.addEventListener('click',async event=>{
       if(action==='export-csv')download(resultsCSV(state,profile().id),'text/csv;charset=utf-8',`wyniki-${fileDate}.csv`);
       else {download(JSON.stringify(makeBackup(state,action==='export-profile'?profile().id:null),null,2),'application/json',`sila-na-trase-${fileDate}.json`);await commit(s=>s.lastExportAt=new Date().toISOString());render();notice('Uruchomiono pobieranie kopii. Sprawdź, czy plik został zapisany.');}
     }
+    else if(action==='ai-import') {
+      if(!preparedPhase)throw Error('Najpierw sprawdź podgląd fazy.');
+      const {pid,phase}=preparedPhase;
+      const result=await commit(s=>importTrainingPhase(s,pid,phase));
+      preparedPhase=null;
+      if(route()[0]==='ai-training') {
+        window.addEventListener('hashchange',()=>notice(`Zapisano fazę „${result.name}”. Liczba dodanych planów: ${result.plans.length}.`),{once:true});
+        go('plans');
+      }
+    }
     else if(action==='import-confirm') {if(!preparedImport)throw Error('Najpierw wybierz plik.');const count=await commit(s=>importBackup(s,preparedImport));preparedImport=null;go('profiles');notice(`Import zakończony. Dodane profile: ${count}. Obecne dane zachowano.`);}
     else if(action==='persist') {const granted=await navigator.storage?.persist?.();notice(granted?'Przeglądarka przyznała trwałe przechowywanie. Nadal twórz kopie JSON.':'Przeglądarka nie przyznała trwałego przechowywania. Twórz kopie JSON.');await storageInfo(routeToken);}
     else if(action==='install') {if(installPrompt){await installPrompt.prompt();installPrompt=null;el.hidden=true;}}
@@ -435,6 +506,11 @@ document.addEventListener('click',async event=>{
   finally{saving=false;if(el.isConnected)el.disabled=false;}
 });
 document.addEventListener('input',event=>{
+  if(event.target.closest('[data-form=ai-preview]')) {
+    preparedPhase=null;
+    $('#ai-preview').textContent='';
+    if(event.target.id==='ai_json'&&event.inputType==='insertFromPaste')event.target.form.requestSubmit();
+  }
   if(event.target.closest('#set-form'))rememberDraft();
   if(event.target.id==='exercise-search') {const q=event.target.value.toLocaleLowerCase('pl');for(const li of document.querySelectorAll('#exercise-list>li'))li.hidden=!li.dataset.search.includes(q);}
 });
